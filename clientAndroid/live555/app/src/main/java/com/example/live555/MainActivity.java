@@ -36,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         ExternalFileDir = getExternalFilesDir(null).getAbsolutePath();
-        ExternalFileDir = getExternalFilesDir(null).getAbsolutePath();
         if(!(new File(ExternalFileDir+"/"+testH264file).exists())) {
             copyAssets(this, testH264file, ExternalFileDir);
         }
