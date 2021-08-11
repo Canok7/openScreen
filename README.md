@@ -1,6 +1,6 @@
 # openScreen
 投屏
-业余时间
+个人业余时间写的一些像demo。
 当前正在逐渐增加子模块，前期已单个独立的demoapp 方式，待完成后进行串联整合
 20210803：子目录下clientAndroid/live555
         使用live555+mediacode(ndk） 拉流，解码渲染 rtp-udp h264
