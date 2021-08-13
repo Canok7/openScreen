@@ -46,7 +46,7 @@ public class AudioTrackRender {
 
     public void playByteArray(byte[] audioData, int offsetInBytes, int sizeInBytes){
         if(mAudioTrack!=null && mAudioTrack.getState()!=AudioTrack.STATE_UNINITIALIZED){
-            Log.d(TAG, "play: "+sizeInBytes);
+            Log.d(TAG, "playByteArray: "+sizeInBytes);
             mAudioTrack.write(audioData,offsetInBytes,sizeInBytes);
         }else{
             Log.d(TAG, "play: err! not init");
@@ -55,7 +55,7 @@ public class AudioTrackRender {
 
     public void playByteBuffer(ByteBuffer audioData, int sizeInBytes){
         if(mAudioTrack!=null && mAudioTrack.getState()!=AudioTrack.STATE_UNINITIALIZED){
-            Log.d(TAG, "play: "+sizeInBytes);
+            Log.d(TAG, "playByteBuffer: "+sizeInBytes);
             mAudioTrack.write(audioData,sizeInBytes,AudioTrack.WRITE_BLOCKING);
         }else{
             Log.d(TAG, "play: err! not init");

@@ -28,9 +28,16 @@ int JavaAudioTrackRender::init(int sampleRateInHz, int channelConfig,int sampleD
 }
 void JavaAudioTrackRender::play(unsigned char*buf,int size) {
     init_callJava();
+#if 0
     jbyteArray byteArray = mEnv->NewByteArray(size);
     mEnv->SetByteArrayRegion(byteArray, 0, size, (jbyte *) buf);
     mEnv->CallVoidMethod(mjobj, mj_playByteArray, byteArray, 0, size);
+    mEnv->DeleteLocalRef(byteArray);
+#else
+    jobject byteBuffer = mEnv->NewDirectByteBuffer(buf,size);
+    mEnv->CallVoidMethod(mjobj, mj_playByteBuffer, byteBuffer, size);
+    mEnv->DeleteLocalRef(byteBuffer);
+#endif
 }
 int JavaAudioTrackRender::init_callJava(){
     if(mj_init!=NULL && mj_playByteArray!=NULL && mj_playByteBuffer!=NULL){
