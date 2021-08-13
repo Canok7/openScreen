@@ -2,15 +2,15 @@
 // Created by xiancan.wang on 8/10/21.
 //
 
-#ifndef AACPLAYER_GETAACFRAME_H
-#define AACPLAYER_GETAACFRAME_H
+#ifndef AACPLAYER_AACFILEPARSER_H
+#define AACPLAYER_AACFILEPARSER_H
 #include<stdio.h>
 #include<stdlib.h>
 
-class getAACFrame {
+class AACFileparser {
 public:
-    getAACFrame(const char*file,bool loop=true);
-    ~getAACFrame();
+    AACFileparser(const char*file, bool loop=true);
+    ~AACFileparser();
     int getOneFrameWithoutADTS(unsigned char *dest,int buflen);
     int getOneFrameFull(unsigned char *dest,int buflen);
     int probeInfo(int *channel, int *samplingFrequency,int *sampleFreInd,int *iprofile);
@@ -22,4 +22,4 @@ private:
 };
 
 
-#endif //AACPLAYER_GETAACFRAME_H
+#endif //AACPLAYER_AACFILEPARSER_H

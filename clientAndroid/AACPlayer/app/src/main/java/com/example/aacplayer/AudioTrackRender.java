@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 
 //由native　调用c call java
 public class AudioTrackRender {
@@ -43,10 +44,19 @@ public class AudioTrackRender {
         }
     }
 
-    public void play(byte[] audioData, int offsetInBytes, int sizeInBytes){
+    public void playByteArray(byte[] audioData, int offsetInBytes, int sizeInBytes){
         if(mAudioTrack!=null && mAudioTrack.getState()!=AudioTrack.STATE_UNINITIALIZED){
             Log.d(TAG, "play: "+sizeInBytes);
             mAudioTrack.write(audioData,offsetInBytes,sizeInBytes);
+        }else{
+            Log.d(TAG, "play: err! not init");
+        }
+    }
+
+    public void playByteBuffer(ByteBuffer audioData, int sizeInBytes){
+        if(mAudioTrack!=null && mAudioTrack.getState()!=AudioTrack.STATE_UNINITIALIZED){
+            Log.d(TAG, "play: "+sizeInBytes);
+            mAudioTrack.write(audioData,sizeInBytes,AudioTrack.WRITE_BLOCKING);
         }else{
             Log.d(TAG, "play: err! not init");
         }
@@ -71,7 +81,7 @@ public class AudioTrackRender {
                     try {
                         if ( (len = is.read(b)) == -1)  break;
                         Log.d(TAG, "run: write");
-                       play(b, 0, len);
+                        playByteArray(b, 0, len);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }

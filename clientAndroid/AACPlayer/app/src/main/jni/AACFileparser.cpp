@@ -2,7 +2,7 @@
 // Created by xiancan.wang on 8/10/21.
 //
 
-#include "getAACFrame.h"
+#include "AACFileparser.h"
 #include "Logs.h"
 
 #define MAKE64_LEFT(d0,d1,d2,d3,d4,d5,d6,d7) ((int64_t)(d0)<<56)|((int64_t)(d1)<<48)|((int64_t)(d2)<<40)|((int64_t)(d3)<<32)|((int64_t)(d4)<<24)|((int64_t)(d5)<<16)|((int64_t)(d6)<<8)|(int64_t)(d7)
@@ -18,17 +18,17 @@ static unsigned const samplingFrequencyTable[16] = {
         16000, 12000, 11025, 8000,
         7350, 0, 0, 0
 };
-getAACFrame::getAACFrame(const char*file,bool loop):bLoop(loop){
+AACFileparser::AACFileparser(const char*file, bool loop): bLoop(loop){
     fp_in = fopen(file,"r");
     if(fp_in == NULL){
         ALOGD("[%s%d] fopen err:%s",__FUNCTION__ ,__LINE__,file);
     }
 }
-getAACFrame::~getAACFrame(){
+AACFileparser::~AACFileparser(){
 
 }
 
-int getAACFrame::getOneFrameWithoutADTS(unsigned char *dest, int buflen){
+int AACFileparser::getOneFrameWithoutADTS(unsigned char *dest, int buflen){
 
     //固定７Byte,如果　protection_absent＝0，则有CRC,CRC占最后两个字节，则ADTS头为７＋２个字节,
     unsigned char headers[7]={0};
@@ -81,7 +81,7 @@ int getAACFrame::getOneFrameWithoutADTS(unsigned char *dest, int buflen){
     }
 }
 
-int getAACFrame::probeInfo(int *channel, int *samplingFrequency,int *sampleFreInd,int *iprofile){
+int AACFileparser::probeInfo(int *channel, int *samplingFrequency, int *sampleFreInd, int *iprofile){
     do {
         // Now, having opened the input file, read the fixed header of the first frame,
         // to get the audio stream's parameters:
