@@ -44,11 +44,15 @@ mEffectives(0)
 	}
 #endif
 	que = (QUEUE_NODE *)malloc(frames*sizeof(QUEUE_NODE));
+	// 如果这里不先 memset 调用一下，在某些系统上这里其实并没有真正申请内存，
+	// 只有在正在往这个内存写数据的时候才申请，导致误以为内存一直在增长，感觉像内存泄漏，
+	// 所以还是set一下比较好,真正做到一次性申请内存。
+	memset(que, 0, frames * sizeof(QUEUE_NODE));
 	if(que == NULL)
 	{
 		printf("erro to malloc\n");
 	}
-	
+
 	pthread_mutexattr_t mutextattr;
 	pthread_mutexattr_init(&mutextattr);
 	// 设置互斥锁在进程之间共享
@@ -80,28 +84,28 @@ CQueue::~CQueue()
 int CQueue::pop(uint8_t *data,int len)
 {
 	//DEBUG("in %d out %d len %d\n ",mInindex,mOutindex,len);
-	
+
 	//sem_wait(&mSem);
 	sem_trywait(&mSem);
 	int iout = mOutindex;
-	
+
 	pthread_mutex_t * ilock = &que[iout].mlock;
 	pthread_mutex_lock(ilock);
-	
+
 	if(reduceEffectives() ==0)
-	{	
+	{
 		mEffectives = 0;
 		pthread_mutex_unlock(ilock);
 		DEBUG("no data\n");
 		return 0;
 	}
-	
+
 	int copylen = MIN(len,que[iout].datalen);
 	if(data != NULL)
 	{
 		memcpy(data,que[iout].data,copylen);
 	}
-	
+
 	addOutindex();
 	pthread_mutex_unlock(ilock);
 	return copylen;
@@ -112,7 +116,7 @@ int CQueue::push(uint8_t *data,int len)
 	//DEBUG("in %d out %d len %d\n ",mInindex,mOutindex,len);
 	int iIn = mInindex;
 	pthread_mutex_t * ilock = &que[iIn].mlock;
-	
+
 	pthread_mutex_lock(ilock);
 	DEBUG("push   mEffectives %d ,maxFrames %d\n",mEffectives,maxFrames);
 #if EN_LOG_FILE
@@ -129,7 +133,7 @@ int CQueue::push(uint8_t *data,int len)
 	}
 #endif
 	int copylen = MIN(len,sizeof(que[iIn].data));
-	
+
 	if(data != NULL)
 	{
 		memcpy(que[iIn].data,data,copylen);
@@ -139,7 +143,7 @@ int CQueue::push(uint8_t *data,int len)
 			DEBUG("Buffer single frame too short ! Buffer_frame_len:%lu,data_len:%d \n ",sizeof(que[iIn].data),len);
 		}
 	}
-	
+
 	addInindex();
 	sem_post(&mSem);
 	if(IncreaseEffectives() == maxFrames)
@@ -150,7 +154,7 @@ int CQueue::push(uint8_t *data,int len)
 		addOutindex();
 	}
 	pthread_mutex_unlock(ilock);
-	
+
 
 	return copylen;
 
@@ -165,9 +169,9 @@ int CQueue::getbuffer(uint8_t **pdata,int *plen)
 	pthread_mutex_t * ilock = &que[iout].mlock;
 	pthread_mutex_lock(ilock);
 	//DEBUG("pop  mEffectives %d ,maxFrames %d\n",mEffectives,maxFrames);
-	
+
 	if(reduceEffectives() ==0 )
-	{	
+	{
 		*pdata = NULL;
 		*plen =  0;
 		pthread_mutex_unlock(ilock);
@@ -190,11 +194,11 @@ int CQueue::getbuffer(uint8_t **pdata,int *plen)
 		//fwrite(data,1,len,fp_log);
 	}
 #endif
-	
+
 	addOutindex();
 	//DEBUG("in %d out %d len %d unlock \n ",mInindex,mOutindex,len);
 	//pthread_mutex_unlock(ilock);
-	
+
 	//DEBUG("get index  %d \n",iout);
 	return iout;
 }
@@ -228,7 +232,7 @@ int CQueue::IncreaseEffectives()
 	int ret = mEffectives;
 	mEffectives += 1;
 	if(mEffectives > maxFrames)
-	{	
+	{
 		mEffectives = maxFrames;
 	}
 	pthread_mutex_unlock(&mIndexlock);
@@ -238,17 +242,19 @@ int CQueue::IncreaseEffectives()
 int CQueue::reduceEffectives()
 {
 	pthread_mutex_lock(&mIndexlock);
-	
+
 	int ret = mEffectives;
 	mEffectives -= 1;
 	if(mEffectives<0)
-	{	
+	{
 		mEffectives = 0;
 	}
 	pthread_mutex_unlock(&mIndexlock);
 	return ret;
 }
-
+int CQueue::bufferCounts(){
+    return mEffectives;
+}
 
 #if 0
 int main()
@@ -262,7 +268,7 @@ int main()
 	uint8_t buf4[128]="44444";
 	uint8_t buf5[128]="55555";
 	uint8_t bufget[128]={0};
-	
+
 	int len = sizeof(bufget);
 	pQueue->push(buf1,sizeof(buf1));
 	#if 1
@@ -276,14 +282,14 @@ int main()
 
 	pQueue->pop(bufget,len);
 	printf("wang bufget :%s \n",bufget);
-	
-	pQueue->pop(bufget,len);
-	printf("wang bufget :%s \n",bufget);
-	
+
 	pQueue->pop(bufget,len);
 	printf("wang bufget :%s \n",bufget);
 
-	
+	pQueue->pop(bufget,len);
+	printf("wang bufget :%s \n",bufget);
+
+
 	pQueue->pop(bufget,len);
 	printf("wang bufget :%s \n",bufget);
 
@@ -293,7 +299,7 @@ int main()
 	#endif
 	//pQueue->pop(bufget,len);
 	//printf("wang bufget :%s \n",bufget);
-	
+
 	delete pQueue;
 
 	return 0;

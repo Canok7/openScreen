@@ -52,6 +52,7 @@ class CQueue
 		*/
 		int releasebuffer(int index);
 
+		int bufferCounts();
 	private:
 		void addInindex();
 		void addOutindex();

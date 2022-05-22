@@ -17,5 +17,6 @@ public class live555player {
     }
     private native void c_start(String testDir, String url,Surface surface);
     private native void c_stop();
+    public long cObj;
 }
 

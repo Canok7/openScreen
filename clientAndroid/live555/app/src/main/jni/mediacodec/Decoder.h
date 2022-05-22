@@ -13,7 +13,7 @@ class Decoder {
 public :
     Decoder();
     ~Decoder();
-    int start(ANativeWindow *wind,CQueue *dataQueue, char* workdir);
+    int start(ANativeWindow *wind,CQueue *dataQueue, char* workdir, unsigned int cachFrames = 0);
     void stop();
     void inputThread();
     void outputThread();
@@ -25,6 +25,7 @@ private:
     CQueue *mDataQueue;
     bool bRun;
     bool bCheckSps;
+    unsigned int mCachFrames;
 };
 
 

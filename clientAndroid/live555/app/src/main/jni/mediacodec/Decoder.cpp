@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <string.h>
+#include <unistd.h>
+
 #define TEST_FROME_FILE 0
 #if TEST_FROME_FILE
 #include "geth264Frame.cpp"
@@ -23,7 +25,11 @@ mDataQueue(NULL),bRun(true),bCheckSps(false){
 
 }
 
-Decoder::~Decoder(){
+Decoder::~Decoder() {
+    stop();
+    if(pMediaCodec) {
+        AMediaCodec_delete(pMediaCodec);
+    }
 
 }
 
@@ -37,7 +43,9 @@ static void *output(void *privdata){
     decoder->outputThread();
     return NULL;
 }
-int Decoder::start(ANativeWindow *wind,CQueue *dataQueue, char* workdir){
+
+int Decoder::start(ANativeWindow *wind, CQueue *dataQueue, char *workdir, unsigned int cachFrames) {
+
 #if TEST_FROME_FILE
     char filetestfile[128]={0};
     sprintf(filetestfile,"%s/test.264",workdir);
@@ -46,20 +54,25 @@ int Decoder::start(ANativeWindow *wind,CQueue *dataQueue, char* workdir){
         return -1;
     }
 #endif
-    if(pMediaCodec !=NULL){
-        ALOGE("[%s%d] had start!!",__FUNCTION__ ,__LINE__);
-        return -1;
-    }
+//    if(pMediaCodec !=NULL){
+//        ALOGE("[%s%d] had start!!",__FUNCTION__ ,__LINE__);
+//        return -1;
+//    }
+    mCachFrames = cachFrames;
     mDataQueue = dataQueue;
-    pMediaCodec = AMediaCodec_createDecoderByType("video/avc");//h264
-    AMediaFormat *format = AMediaFormat_new();
-    AMediaFormat_setString(format, "mime", "video/avc");
-    AMediaFormat_setInt32(format,AMEDIAFORMAT_KEY_WIDTH,1920);
-    AMediaFormat_setInt32(format,AMEDIAFORMAT_KEY_HEIGHT,1080);
-    media_status_t status = AMediaCodec_configure(pMediaCodec,format,wind,NULL,0);
-    if(status!=0){
-        ALOGD("erro config %d",status);
-        return -1;
+    bRun = true;
+    if (pMediaCodec == nullptr) {
+        pMediaCodec = AMediaCodec_createDecoderByType("video/avc");//h264
+        AMediaFormat *format = AMediaFormat_new();
+        AMediaFormat_setString(format, "mime", "video/avc");
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
+        media_status_t status = AMediaCodec_configure(pMediaCodec, format, wind, NULL, 0);
+        AMediaFormat_delete(format);
+        if (status != 0) {
+            ALOGD("erro config %d", status);
+            return -1;
+        }
     }
     AMediaCodec_start(pMediaCodec);
 
@@ -72,16 +85,21 @@ int Decoder::start(ANativeWindow *wind,CQueue *dataQueue, char* workdir){
         ALOGE("[%s%d] pthread create err!!",__FUNCTION__ ,__LINE__);
         return -1;
     }
-    AMediaFormat_delete(format);
+
     return 0;
 }
 
-void Decoder::stop(){
-    if(mThreadIn!=-1){
-        pthread_join(mThreadIn,NULL);
-    }
-    if(mThreadOut!=-1) {
-        pthread_join(mThreadOut, NULL);
+void Decoder::stop() {
+    bRun = false;
+    mDataQueue->push(0, 0);
+    if (pMediaCodec != nullptr) {
+        if (mThreadIn != -1) {
+            pthread_join(mThreadIn, NULL);
+        }
+        if (mThreadOut != -1) {
+            pthread_join(mThreadOut, NULL);
+        }
+        AMediaCodec_stop(pMediaCodec);
     }
 }
 void Decoder::inputThread(){
@@ -116,8 +134,17 @@ void Decoder::inputThread(){
     while(bRun){
         int datalen=0;
         do {
-             //Must be released by mDataQueue->releasebuffer(queueIndex) later
-             //will block until get one buffer
+            if (bCheckSps) {
+                // 当前还没用起来，需要一个定时出包线程。
+//                // 加个缓存，mCachFrames 帧数起播。
+//                if (mDataQueue->bufferCounts() < mCachFrames) {
+//                    ALOGW("[%s%d] buffering %d/%d ", __FUNCTION__ ,__LINE__,mDataQueue->bufferCounts(), mCachFrames);
+//                    usleep(20*1000);
+//                    continue;
+//                }
+            }
+            //Must be released by mDataQueue->releasebuffer(queueIndex) later
+            //will block until get one buffer
             queueIndex = mDataQueue->getbuffer(&data, &datalen);
             if(!bCheckSps){
                 if(checkIs_spsppsNal(data)){
