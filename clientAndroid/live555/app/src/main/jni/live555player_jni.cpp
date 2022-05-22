@@ -31,11 +31,11 @@ public:
         if (mWorkdir) {
             delete[] mWorkdir;
         }
-        if(mDecoder){
+        if (mDecoder) {
             delete mDecoder;
             mDecoder = nullptr;
         }
-        if(mLive555){
+        if (mLive555) {
             delete mLive555;
             mLive555 = nullptr;
         }
@@ -69,16 +69,16 @@ private:
     SrcLive555 *mLive555;
 };
 
-static char* jstringToChar(JNIEnv* env, jstring jstr) {
-    char* rtn = NULL;
+static char *jstringToChar(JNIEnv *env, jstring jstr) {
+    char *rtn = NULL;
     jclass clsstring = env->FindClass("java/lang/String");
     jstring strencode = env->NewStringUTF("utf-8");
     jmethodID mid = env->GetMethodID(clsstring, "getBytes", "(Ljava/lang/String;)[B");
     jbyteArray barr = (jbyteArray) env->CallObjectMethod(jstr, mid, strencode);
     jsize alen = env->GetArrayLength(barr);
-    jbyte* ba = env->GetByteArrayElements(barr, JNI_FALSE);
+    jbyte *ba = env->GetByteArrayElements(barr, JNI_FALSE);
     if (alen > 0) {
-        rtn = (char*) malloc(alen + 1);
+        rtn = (char *) malloc(alen + 1);
         memcpy(rtn, ba, alen);
         rtn[alen] = 0;
     }
@@ -116,9 +116,10 @@ void Stop(JNIEnv *env, jobject obj) {
     delete player;
     env->SetLongField(obj, fid, 0);
 }
+
 static JNINativeMethod gMethods[] = {
-        {"c_start",     "(Ljava/lang/String;Ljava/lang/String;Landroid/view/Surface;)V",      (void*)Start},
-        {"c_stop",  "()V",   (void*)Stop},
+        {"c_start", "(Ljava/lang/String;Ljava/lang/String;Landroid/view/Surface;)V", (void *) Start},
+        {"c_stop",  "()V",                                                           (void *) Stop},
 };
 
 
@@ -142,16 +143,16 @@ static int registerFunctios(JNIEnv *env) {
                                  sizeof(gMethods) / sizeof(gMethods[0]));
 }
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved){
-    JNIEnv* env = NULL;
+jint JNI_OnLoad(JavaVM *vm, void *reserved) {
+    JNIEnv *env = NULL;
     jint result = -1;
-    if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK) {
         ALOGD("ERROR: GetEnv failed\n");
         goto bail;
     }
 
     if (registerFunctios(env) < 0) {
-        ALOGE("[%s%d] onloader err \n",__FUNCTION__ ,__LINE__);
+        ALOGE("[%s%d] onloader err \n", __FUNCTION__, __LINE__);
         goto bail;
     }
     result = JNI_VERSION_1_4;

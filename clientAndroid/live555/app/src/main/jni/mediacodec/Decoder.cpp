@@ -12,34 +12,36 @@
 #if TEST_FROME_FILE
 #include "geth264Frame.cpp"
 #else
-#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
-int64_t getNowUs(){
+
+int64_t getNowUs() {
     struct timeval tv;
     gettimeofday(&tv, 0);
-    return (int64_t)tv.tv_sec * 1000000 + (int64_t)tv.tv_usec;
+    return (int64_t) tv.tv_sec * 1000000 + (int64_t) tv.tv_usec;
 }
 
-Decoder::Decoder():pMediaCodec(NULL),mThreadIn(-1),mThreadOut(-1),
-mDataQueue(NULL),bRun(true),bCheckSps(false){
+Decoder::Decoder() : pMediaCodec(NULL), mThreadIn(-1), mThreadOut(-1),
+                     mDataQueue(NULL), bRun(true), bCheckSps(false) {
 
 }
 
 Decoder::~Decoder() {
     stop();
-    if(pMediaCodec) {
+    if (pMediaCodec) {
         AMediaCodec_delete(pMediaCodec);
     }
 
 }
 
-static void *input(void *privdata){
-    Decoder *decoder = (Decoder*)privdata;
+static void *input(void *privdata) {
+    Decoder *decoder = (Decoder *) privdata;
     decoder->inputThread();
     return NULL;
 }
-static void *output(void *privdata){
-    Decoder *decoder = (Decoder*)privdata;
+
+static void *output(void *privdata) {
+    Decoder *decoder = (Decoder *) privdata;
     decoder->outputThread();
     return NULL;
 }
@@ -77,12 +79,12 @@ int Decoder::start(ANativeWindow *wind, CQueue *dataQueue, char *workdir, unsign
     AMediaCodec_start(pMediaCodec);
 
     //也可以通过 AMediaCodec_setAsyncNotifyCallback 设置成异步方式.
-    if(pthread_create(&mThreadIn,NULL,input,(void*)this)<0){
-        ALOGE("[%s%d] pthread create err!!",__FUNCTION__ ,__LINE__);
+    if (pthread_create(&mThreadIn, NULL, input, (void *) this) < 0) {
+        ALOGE("[%s%d] pthread create err!!", __FUNCTION__, __LINE__);
         return -1;
     }
-    if(pthread_create(&mThreadOut,NULL,output,(void*)this)<0){
-        ALOGE("[%s%d] pthread create err!!",__FUNCTION__ ,__LINE__);
+    if (pthread_create(&mThreadOut, NULL, output, (void *) this) < 0) {
+        ALOGE("[%s%d] pthread create err!!", __FUNCTION__, __LINE__);
         return -1;
     }
 
@@ -102,7 +104,8 @@ void Decoder::stop() {
         AMediaCodec_stop(pMediaCodec);
     }
 }
-void Decoder::inputThread(){
+
+void Decoder::inputThread() {
 #if TEST_FROME_FILE
     ssize_t bufidx = 0;
     int buflen=1024*500;
@@ -129,10 +132,10 @@ void Decoder::inputThread(){
         } while (bufidx < 0);
     }
 #else
-    int queueIndex=0;
-    uint8_t *data=NULL;
-    while(bRun){
-        int datalen=0;
+    int queueIndex = 0;
+    uint8_t *data = NULL;
+    while (bRun) {
+        int datalen = 0;
         do {
             if (bCheckSps) {
                 // 当前还没用起来，需要一个定时出包线程。
@@ -146,34 +149,34 @@ void Decoder::inputThread(){
             //Must be released by mDataQueue->releasebuffer(queueIndex) later
             //will block until get one buffer
             queueIndex = mDataQueue->getbuffer(&data, &datalen);
-            if(!bCheckSps){
-                if(checkIs_spsppsNal(data)){
+            if (!bCheckSps) {
+                if (checkIs_spsppsNal(data)) {
                     bCheckSps = true;
-                }else{
-                    ALOGW("[%s%d] drop this frame until get a sps info ",__FUNCTION__ ,__LINE__);
+                } else {
+                    ALOGW("[%s%d] drop this frame until get a sps info ", __FUNCTION__, __LINE__);
                     break;
                 }
             }
             ssize_t bufidx = 0;
             do {
-                bufidx = AMediaCodec_dequeueInputBuffer(pMediaCodec, 1000*20);
+                bufidx = AMediaCodec_dequeueInputBuffer(pMediaCodec, 1000 * 20);
                 if (bufidx >= 0) {
                     size_t bufsize;
-                    unsigned char nal[4]={0x00,0x00,0x00,0x01};
+                    unsigned char nal[4] = {0x00, 0x00, 0x00, 0x01};
                     uint8_t *buf = AMediaCodec_getInputBuffer(pMediaCodec, bufidx, &bufsize);
                     if (bufsize - sizeof(nal) < datalen) {
                         ALOGE("[%s%d]something maybe erro! will drop some video data!!! please check the mediacodec or src data:bufsize:%lu,datalen:%d",
                               __FUNCTION__, __LINE__, bufsize, datalen);
                     }
-                    memcpy(buf,nal,sizeof(nal));
-                    memcpy(buf+sizeof(nal), data, MIN(bufsize-sizeof(nal), datalen));
+                    memcpy(buf, nal, sizeof(nal));
+                    memcpy(buf + sizeof(nal), data, MIN(bufsize - sizeof(nal), datalen));
                     uint64_t presentationTimeUs = getNowUs();
-                    ALOGD("[%s%d] AMediaCodec_queueInputBuffer one",__FUNCTION__ ,__LINE__);
-                    AMediaCodec_queueInputBuffer(pMediaCodec, bufidx, 0, MIN(bufsize, datalen+4),
+                    ALOGD("[%s%d] AMediaCodec_queueInputBuffer one", __FUNCTION__, __LINE__);
+                    AMediaCodec_queueInputBuffer(pMediaCodec, bufidx, 0, MIN(bufsize, datalen + 4),
                                                  presentationTimeUs, 0);
                 }
-            }while(bufidx <0);
-        }while(0);
+            } while (bufidx < 0);
+        } while (0);
         mDataQueue->releasebuffer(queueIndex);
     }
 #endif
@@ -205,15 +208,15 @@ void Decoder::outputThread() {
     }
 }
 
-bool Decoder::checkIs_spsppsNal(unsigned char* buff){
+bool Decoder::checkIs_spsppsNal(unsigned char *buff) {
 #if 0// 00 00 00 01 xx
     uint8_t *nal =buff;
     char type = nal[4] & ((1<<5)-1);
     //sps 7, pps 8
     return (type==7||type==8);
 #else//xx
-    char type = buff[0] & ((1<<5)-1);
+    char type = buff[0] & ((1 << 5) - 1);
     //sps 7, pps 8
-    return (type==7||type==8);
+    return (type == 7 || type == 8);
 #endif
 }
