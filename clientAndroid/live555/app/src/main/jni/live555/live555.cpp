@@ -338,9 +338,12 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
             env << *rtspClient
                 << "Failed to create a MediaSession object from the SDP description: "
                 << env.getResultMsg() << "\n";
+            ALOGE("Failed to create a MediaSession object from the SDP description: %s",
+                  env.getResultMsg());
             break;
         } else if (!scs.session->hasSubsessions()) {
             env << *rtspClient << "This session has no media subsessions (i.e., no \"m=\" lines)\n";
+            ALOGE("This session has no media subsessions (i.e., no \"m=\" lines)\n");
             break;
         }
 
@@ -372,6 +375,7 @@ void setupNextSubsession(RTSPClient *rtspClient) {
         if (!scs.subsession->initiate()) {
             env << *rtspClient << "Failed to initiate the \"" << *scs.subsession
                 << "\" subsession: " << env.getResultMsg() << "\n";
+            ALOGE("[%s%d] Failed to initiate the subSession", __FUNCTION__, __LINE__);
             setupNextSubsession(rtspClient); // give up on this subsession; go to the next one
         } else {
             env << *rtspClient << "Initiated the \"" << *scs.subsession << "\" subsession (";
@@ -438,6 +442,10 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
         if (resultCode != 0) {
             env << *rtspClient << "Failed to set up the \"" << *scs.subsession << "\" subsession: "
                 << resultString << "\n";
+            ALOGE("[%d%s]setup the %s \n,clientPortNum %u , MediunumName %s, codecName %s",
+                  __LINE__, __FUNCTION__, scs.subsession->savedSDPLines(),
+                  scs.subsession->clientPortNum(), scs.subsession->mediumName(),
+                  scs.subsession->codecName());
             break;
         }
 
@@ -515,7 +523,7 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 
     if (!success) {
         // An unrecoverable error occurred with this stream.
-        ALOGD("[%d%s]An unrecoverable error occurred with this stream, shutdown starem ", __LINE__,
+        ALOGE("[%d%s]An unrecoverable error occurred with this stream, shutdown starem ", __LINE__,
               __FUNCTION__);
         shutdownStream(rtspClient);
     }
@@ -629,7 +637,10 @@ ourRTSPClient::ourRTSPClient(UsageEnvironment &env, char const *rtspURL,
                              bool bTcp,
                              unsigned udpReorderingHoldTime, IRtspClientDestoryNotifyer *notify)
         : RTSPClient(env, rtspURL, verbosityLevel, applicationName, tunnelOverHTTPPortNum, -1),
-          mQueue(queue), mNotify(notify) {
+          mQueue(queue), mBTcp(bTcp), mUdpReorderingHoldTime(udpReorderingHoldTime),
+          mNotify(notify) {
+    ALOGI("[%s%d] ourRTSPClient: mBTcp:%s, mUdpReorderingHoldTime %u", __FUNCTION__, __LINE__,
+          mBTcp ? "true" : "false", mUdpReorderingHoldTime);
 }
 
 ourRTSPClient::~ourRTSPClient() {
