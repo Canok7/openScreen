@@ -9,22 +9,31 @@
 #include "media/NdkMediaFormat.h"
 #include "logs.h"
 #include "queue.h"
+
 class Decoder {
 public :
     Decoder();
+
     ~Decoder();
-    int start(ANativeWindow *wind,CQueue *dataQueue, char* workdir);
+
+    int start(ANativeWindow *wind, CQueue *dataQueue, char *workdir, unsigned int cachFrames = 0);
+
     void stop();
+
     void inputThread();
+
     void outputThread();
-    static bool checkIs_spsppsNal(unsigned char*buf);
+
+    static bool checkIs_spsppsNal(unsigned char *buf);
+
 private:
-    AMediaCodec  *pMediaCodec;
+    AMediaCodec *pMediaCodec;
     pthread_t mThreadIn;
     pthread_t mThreadOut;
     CQueue *mDataQueue;
     bool bRun;
     bool bCheckSps;
+    unsigned int mCachFrames;
 };
 
 
