@@ -49,34 +49,34 @@ public class MainActivity extends AppCompatActivity {
             mBtnPlay = btnPlay;
             mSurfaceView = surfaceView;
 
-            mBtnPlay.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Log.d(TAG, "onClick: " + mBplaying);
-                    if (mPlayer == null && mSurface != null) {
-                        mPlayer = new live555player();
+            mBtnPlay.setOnClickListener(
+                    (v) -> {
+                        Log.d(TAG, "onClick: " + mBplaying);
+                        if (mPlayer == null && mSurface != null) {
+                            mPlayer = new live555player();
+                        }
+                        if (mPlayer == null) {
+                            return;
+                        }
+                        if (!mBplaying) {
+                            mPlayer.start(ExternalFileDir, mEditUrl.getText().toString(), mSurface);
+                            String url = mEditUrl.getText().toString();
+                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+                            SharedPreferences.Editor editor = prefs.edit();
+                            editor.putString(SHAREDPREFERENCE_URL + "_" + mId, url);
+                            editor.commit();
+                        } else {
+                            Log.d(TAG, "onClick: stop");
+                            mPlayer.stop();
+                        }
+                        mBplaying = !mBplaying;
+                        mBtnPlay.setText(mBplaying ? "点击停止" : "点击开始");
                     }
-                    if (mPlayer == null) {
-                        return;
-                    }
-                    if (!mBplaying) {
-                        mPlayer.start(ExternalFileDir, mEditUrl.getText().toString(), mSurface);
-                        String url = mEditUrl.getText().toString();
-                        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-                        SharedPreferences.Editor editor = prefs.edit();
-                        editor.putString(SHAREDPREFERENCE_URL + "_" + mId, url);
-                        editor.commit();
-                    } else {
-                        Log.d(TAG, "onClick: stop");
-                        mPlayer.stop();
-                    }
-                    mBplaying = !mBplaying;
-                    mBtnPlay.setText(mBplaying ? "点击停止" : "点击开始");
-                }
-            });
+            );
 
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            mEditUrl.setText(prefs.getString(SHAREDPREFERENCE_URL + "_" + mId, "rtsp://127.0.0.1:8554/testStream"));
+//            mEditUrl.setText(prefs.getString(SHAREDPREFERENCE_URL + "_" + mId, "rtsp://127.0.0.1:8554/testStream"));
+            mEditUrl.setText(prefs.getString(SHAREDPREFERENCE_URL + "_" + mId, "rtsp://127.0.0.1:8554/matroskaFileTest"));
 
             SurfaceHolder holder = mSurfaceView.getHolder();
             holder.addCallback(new SurfaceHolder.Callback() {
@@ -104,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        private int mId = 0;
+        private int mId;
         private EditText mEditUrl;
         private Button mBtnPlay;
         private SurfaceView mSurfaceView;
@@ -113,7 +113,6 @@ public class MainActivity extends AppCompatActivity {
         private boolean mBplaying = false;
     }
 
-    ;
 
     public static void copyAssets(Context context, String srcfile, String destPath) {
         File src = new File(srcfile);

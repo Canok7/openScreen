@@ -19,15 +19,29 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 // NOTE: This code - although it builds a running application - is intended only to illustrate how to develop your own RTSP
 // client application.  For a full-featured RTSP client application - with much more functionality, and many options - see
 // "openRTSP": http://www.live555.com/openRTSP/
+
+#define LOG_TAG "live555"
+
+#include "logs.h"
 #include <pthread.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include "live555.h"
-#include "logs.h"
+
 #include "groupsock/GroupsockHelper.hh"
 #include "liveMedia/liveMedia.hh"
 #include "BasicUsageEnvironment/BasicUsageEnvironment.hh"
 #include "UsageEnvironment/UsageEnvironment.hh"
+#include<map>
+#include<string>
+#include<cstring>
+#include "utils/timeUtils.h"
+
+#include "MediaQueue.h"
+
+#define ENABLE_DUMPFILE  1
+char g_workdir[128];
+
 // Forward function definitions:
 
 // RTSP 'response handlers':
@@ -92,28 +106,32 @@ class ourRTSPClient : public RTSPClient {
 public:
     static ourRTSPClient *createNew(UsageEnvironment &env, char const *rtspURL,
                                     int verbosityLevel = 0,
-                                    char const *applicationName = NULL,
-                                    portNumBits tunnelOverHTTPPortNum = 0, CQueue *queue = NULL,
+                                    char const *applicationName = nullptr,
+                                    portNumBits tunnelOverHTTPPortNum = 0,
+                                    std::map<std::string, std::shared_ptr<MediaQueue>> *queues = nullptr,
                                     bool bTcp = false,
                                     unsigned udpReorderingHoldTime = 200,
-                                    IRtspClientDestoryNotifyer *notify = nullptr);
+                                    IRtspClientNotifyer *notify = nullptr, unsigned cachTimeUs = 0);
 
 protected:
     ourRTSPClient(UsageEnvironment &env, char const *rtspURL,
                   int verbosityLevel, char const *applicationName,
-                  portNumBits tunnelOverHTTPPortNum, CQueue *queue,
+                  portNumBits tunnelOverHTTPPortNum,
+                  std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
                   bool bTcp,
-                  unsigned udpReorderingHoldTime, IRtspClientDestoryNotifyer *notify = nullptr);
+                  unsigned udpReorderingHoldTime, IRtspClientNotifyer *notify = nullptr,
+                  unsigned cachTimeUs = 0);
 
     // called only by createNew();
-    virtual ~ourRTSPClient();
+    ~ourRTSPClient() override;
 
 public:
     StreamClientState scs;
-    CQueue *mQueue = nullptr;
+    std::map<std::string, std::shared_ptr<MediaQueue>> *mQueues;
     bool mBTcp;
     unsigned mUdpReorderingHoldTime;
-    IRtspClientDestoryNotifyer *mNotify = nullptr;
+    IRtspClientNotifyer *mNotify = nullptr;
+    unsigned mCachTimeUs = 0;
 };
 
 //char eventLoopWatchVariable = 0;
@@ -123,7 +141,7 @@ void *live555_main(void *src) {
     // Begin by setting up our usage environment:
     TaskScheduler *scheduler = BasicTaskScheduler::createNew();
     UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
-    SrcLive555 *obj = (SrcLive555 *) src;
+    auto *obj = (SrcLive555 *) src;
     const char *url = obj->getUrl();
 #if 0 //想拉高优先级，没有权限
     int ret =0;
@@ -163,54 +181,53 @@ void *live555_main(void *src) {
     shutdownStream(obj->getOurRtspClient());
 
     env->reclaim();
-    env = NULL;
+    env = nullptr;
     delete scheduler;
-    scheduler = NULL;
+    scheduler = nullptr;
 
     ALOGD("[%d%s] live555 thread exit", __LINE__, __FUNCTION__);
-    return NULL;
+    return nullptr;
 }
 
 
 SrcLive555::SrcLive555(char *workdir) {
     mWorkdir = strDup(workdir);
+    snprintf(g_workdir, sizeof(g_workdir), "%s", mWorkdir);
 }
 
 SrcLive555::~SrcLive555() {
+    ALOGD("[%s%d]", __FUNCTION__, __LINE__);
     stop();
     delete[] mWorkdir;
-    delete mQueue;
+// 析构会自动释放
+//    std::map<std::string ,std::shared_ptr<MediaQueue> > ::iterator iter;
+//    for(iter = mQueues.begin(); iter != mQueues.end(); iter++) {
+//       delete iter->second;
+//    }
+//    mQueues.clear();
+    ALOGD("[%s%d]", __FUNCTION__, __LINE__);
+
 }
 
-void SrcLive555::start(char *url, bool bTcp, unsigned udpReorderTimeUs) {
+void
+SrcLive555::start(char *url, IRtspClientNotifyer *notifyer, bool bTcp, unsigned udpReorderTimeUs,
+                  unsigned cachTimeUs) {
+    mNotifyer = notifyer;
     eventLoopWatchVariable = 0;
     mBTcp = bTcp;
     mUdpReorderingHoldTime = udpReorderTimeUs;
-    if (mUrl) {
+    mCachingTimeUs = cachTimeUs;
+//    if (nullptr != mUrl) {
         delete[] mUrl;
-    }
+//    }
     mUrl = strDup(url);
     ALOGD(" srcLive555 [%s%d] url:%s, workdir %s", __FUNCTION__, __LINE__, url, mWorkdir);
 
-#if ENABLE_DUMPFILE//if you want to dump data, enable this
-    char file_out[128]={0};
-    sprintf(file_out,"%s/live555get.h264",workdir);
-    gfp_out = fopen(file_out,"w+");
-    if(gfp_out==NULL){
-        ALOGE("[%s%d] fopen err:%s",__FUNCTION__ ,__LINE__,file_out);
-    }
-#endif
+
     int ret = 0;
     eventLoopWatchVariable = 0;
-    if (mQueue == NULL) {
-        mQueue = new CQueue(60, "live555_RECV"); //512K * 60 == 30MByte
-    }
-    if (mQueue == NULL) {
-        ALOGE("new queue erro");
-        return;
-    }
 
-    if (0 != (ret = pthread_create(&pliveThread, NULL, live555_main, (void *) this))) {
+    if (0 != (ret = pthread_create(&pliveThread, nullptr, live555_main, (void *) this))) {
         ALOGE("[%s%d]craete sch erro: %s", __FUNCTION__, __LINE__, strerror(ret));
         return;
     }
@@ -218,10 +235,6 @@ void SrcLive555::start(char *url, bool bTcp, unsigned udpReorderTimeUs) {
 //    pthread_detach(pliveThread);
 }
 
-
-CQueue *SrcLive555::getDataQueue() {
-    return mQueue;
-}
 
 const char *SrcLive555::getUrl() const {
     return mUrl;
@@ -236,7 +249,7 @@ char *SrcLive555::getEventLoopWatchVariable() {
 }
 
 
-#define ENABLE_DUMPFILE  0
+
 
 /*----------------------------------------*/
 
@@ -248,15 +261,18 @@ class DummySink : public MediaSink {
 public:
     static DummySink *createNew(UsageEnvironment &env,
                                 MediaSubsession &subsession, // identifies the kind of data that's being received
-                                char const *streamId = NULL,
-                                CQueue *queue = NULL); // identifies the stream itself (optional)
+                                char const *streamId = nullptr,
+                                std::map<std::string, std::shared_ptr<MediaQueue>> *queues = nullptr,
+                                IRtspClientNotifyer *notifyer = nullptr,
+                                unsigned cachTimeUs = 0); // identifies the stream itself (optional)
 
 private:
     DummySink(UsageEnvironment &env, MediaSubsession &subsession, char const *streamId,
-              CQueue *queue);
+              std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
+              IRtspClientNotifyer *notifyer, unsigned cachTimeUs);
 
     // called only by "createNew()"
-    virtual ~DummySink();
+    ~DummySink() override;
 
     static void afterGettingFrame(void *clientData, unsigned frameSize,
                                   unsigned numTruncatedBytes,
@@ -268,13 +284,25 @@ private:
 
 private:
     // redefined virtual functions:
-    virtual Boolean continuePlaying();
+    Boolean continuePlaying() override;
 
 private:
     u_int8_t *fReceiveBuffer;
     MediaSubsession &fSubsession;
     char *fStreamId;
-    CQueue *mQueue = nullptr;
+    unsigned mCachTimeUs = 0;
+
+    std::map<std::string, std::shared_ptr<MediaQueue>> *mDataMap;
+    std::map<std::string, uint64_t> mFirstRtpPtsMap;
+    std::map<std::string, uint64_t> mDifTsMap;// 第一针的rtp pts - 第一针到达时系统时间
+    IRtspClientNotifyer *notifyer = nullptr;
+
+    //only for audio
+    int mSampleRate = 0;
+    int mChannels = 0;
+#if ENABLE_DUMPFILE
+    FILE *gfp_out = nullptr;
+#endif
 };
 
 #define RTSP_CLIENT_VERBOSITY_LEVEL 1 // by default, print verbose output from each "RTSPClient"
@@ -286,10 +314,10 @@ void SrcLive555::openURL(UsageEnvironment &env, char const *progName, char const
     // to receive (even if more than stream uses the same "rtsp://" URL).
 
     mRtspClient = ourRTSPClient::createNew(env, rtspURL, RTSP_CLIENT_VERBOSITY_LEVEL,
-                                           progName, 0, mQueue, mBTcp, mUdpReorderingHoldTime,
-                                           this);
+                                           progName, 0, &mQueues, mBTcp, mUdpReorderingHoldTime,
+                                           this, mCachingTimeUs);
 
-    if (mRtspClient == NULL) {
+    if (mRtspClient == nullptr) {
         env << "Failed to create a RTSP client for URL \"" << rtspURL << "\": "
             << env.getResultMsg() << "\n";
         ALOGD("Failed to create a RTSP client for URL:%s\%s", rtspURL, env.getResultMsg());
@@ -306,9 +334,20 @@ void SrcLive555::onRtspClinetDestoryed(void *pram) {
     }
 }
 
+void SrcLive555::onNewStreamReady(std::shared_ptr<MediaQueue> pram) {
+    //应该建立一个更加高级的 线程异步消息机制 handler looper\
+    //将会在这里创建启动解码器。
+    if (mNotifyer) {
+        mNotifyer->onNewStreamReady(pram);
+    }
+}
+
 void SrcLive555::stop() {
     eventLoopWatchVariable = 1;
-    pthread_join(pliveThread, NULL);
+    if (pliveThread != -1) {
+        pthread_join(pliveThread, nullptr);
+        pliveThread = -1;
+    }
     if (mUrl) {
         delete[] mUrl;
         mUrl = nullptr;
@@ -323,7 +362,8 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
 
         if (resultCode != 0) {
             env << *rtspClient << "Failed to get a SDP description: " << resultString << "\n";
-            ALOGE(" Failed to get a SDP description: %s", resultString);
+            ALOGE("[%s%d] Failed to get a SDP description: %s", __FUNCTION__, __LINE__,
+                  resultString);
             delete[] resultString;
             break;
         }
@@ -334,7 +374,7 @@ void continueAfterDESCRIBE(RTSPClient *rtspClient, int resultCode, char *resultS
         // Create a media session object from this SDP description:
         scs.session = MediaSession::createNew(env, sdpDescription);
         delete[] sdpDescription; // because we don't need it anymore
-        if (scs.session == NULL) {
+        if (scs.session == nullptr) {
             env << *rtspClient
                 << "Failed to create a MediaSession object from the SDP description: "
                 << env.getResultMsg() << "\n";
@@ -371,7 +411,7 @@ void setupNextSubsession(RTSPClient *rtspClient) {
     StreamClientState &scs = ((ourRTSPClient *) rtspClient)->scs; // alias
 
     scs.subsession = scs.iter->next();
-    if (scs.subsession != NULL) {
+    if (scs.subsession != nullptr) {
         if (!scs.subsession->initiate()) {
             env << *rtspClient << "Failed to initiate the \"" << *scs.subsession
                 << "\" subsession: " << env.getResultMsg() << "\n";
@@ -388,7 +428,7 @@ void setupNextSubsession(RTSPClient *rtspClient) {
             env << ")\n";
 
 #if 1
-            if (scs.subsession->rtpSource() != NULL) {
+            if (scs.subsession->rtpSource() != nullptr) {
                 int fd = scs.subsession->rtpSource()->RTPgs()->socketNum();
 
                 int socket_buflen = 0;
@@ -424,7 +464,7 @@ void setupNextSubsession(RTSPClient *rtspClient) {
     }
 
     // We've finished setting up all of the subsessions.  Now, send a RTSP "PLAY" command to start the streaming:
-    if (scs.session->absStartTime() != NULL) {
+    if (scs.session->absStartTime() != nullptr) {
         // Special case: The stream is indexed by 'absolute' time, so send an appropriate "PLAY" command:
         rtspClient->sendPlayCommand(*scs.session, continueAfterPLAY, scs.session->absStartTime(),
                                     scs.session->absEndTime());
@@ -462,11 +502,13 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
         // (This will prepare the data sink to receive data; the actual flow of data from the client won't start happening until later,
         // after we've sent a RTSP "PLAY" command.)
 
-        CQueue *queue = ((ourRTSPClient *) rtspClient)->mQueue;
-        ALOGD("createsink :%d %p", __LINE__, queue);
-        scs.subsession->sink = DummySink::createNew(env, *scs.subsession, rtspClient->url(), queue);
+        std::map<std::string, std::shared_ptr<MediaQueue>> *queues = ((ourRTSPClient *) rtspClient)->mQueues;
+        IRtspClientNotifyer *notifyer = ((ourRTSPClient *) rtspClient)->mNotify;
+        ALOGD("createsink :%d %p", __LINE__, queues);
+        scs.subsession->sink = DummySink::createNew(env, *scs.subsession, rtspClient->url(), queues,
+                                                    notifyer);
         // perhaps use your own custom "MediaSink" subclass instead
-        if (scs.subsession->sink == NULL) {
+        if (scs.subsession->sink == nullptr) {
             env << *rtspClient << "Failed to create a data sink for the \"" << *scs.subsession
                 << "\" subsession: " << env.getResultMsg() << "\n";
             break;
@@ -478,7 +520,7 @@ void continueAfterSETUP(RTSPClient *rtspClient, int resultCode, char *resultStri
         scs.subsession->sink->startPlaying(*(scs.subsession->readSource()),
                                            subsessionAfterPlaying, scs.subsession);
         // Also set a handler to be called if a RTCP "BYE" arrives for this subsession:
-        if (scs.subsession->rtcpInstance() != NULL) {
+        if (scs.subsession->rtcpInstance() != nullptr) {
             scs.subsession->rtcpInstance()->setByeHandler(subsessionByeHandler, scs.subsession);
         }
     } while (0);
@@ -533,18 +575,18 @@ void continueAfterPLAY(RTSPClient *rtspClient, int resultCode, char *resultStrin
 // Implementation of the other event handlers:
 
 void subsessionAfterPlaying(void *clientData) {
-    MediaSubsession *subsession = (MediaSubsession *) clientData;
+    auto *subsession = (MediaSubsession *) clientData;
     RTSPClient *rtspClient = (RTSPClient *) (subsession->miscPtr);
 
     // Begin by closing this subsession's stream:
     Medium::close(subsession->sink);
-    subsession->sink = NULL;
+    subsession->sink = nullptr;
 
     // Next, check whether *all* subsessions' streams have now been closed:
     MediaSession &session = subsession->parentSession();
     MediaSubsessionIterator iter(session);
-    while ((subsession = iter.next()) != NULL) {
-        if (subsession->sink != NULL) return; // this subsession is still active
+    while ((subsession = iter.next()) != nullptr) {
+        if (subsession->sink != nullptr) return; // this subsession is still active
     }
 
     // All subsessions' streams have now been closed, so shutdown the client:
@@ -567,7 +609,7 @@ void streamTimerHandler(void *clientData) {
     ourRTSPClient *rtspClient = (ourRTSPClient *) clientData;
     StreamClientState &scs = rtspClient->scs; // alias
 
-    scs.streamTimerTask = NULL;
+    scs.streamTimerTask = nullptr;
 
     // Shut down the stream:
     ALOGE("[%s%d] timerout, shutdown stream ", __FUNCTION__, __LINE__);
@@ -583,19 +625,19 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode) {
     StreamClientState &scs = ((ourRTSPClient *) rtspClient)->scs; // alias
 
     // First, check whether any subsessions have still to be closed:
-    if (scs.session != NULL) {
+    if (scs.session != nullptr) {
         Boolean someSubsessionsWereActive = False;
         MediaSubsessionIterator iter(*scs.session);
         MediaSubsession *subsession;
 
-        while ((subsession = iter.next()) != NULL) {
-            if (subsession->sink != NULL) {
+        while ((subsession = iter.next()) != nullptr) {
+            if (subsession->sink != nullptr) {
                 Medium::close(subsession->sink);
-                subsession->sink = NULL;
+                subsession->sink = nullptr;
 
-                if (subsession->rtcpInstance() != NULL) {
-                    subsession->rtcpInstance()->setByeHandler(NULL,
-                                                              NULL); // in case the server sends a RTCP "BYE" while handling "TEARDOWN"
+                if (subsession->rtcpInstance() != nullptr) {
+                    subsession->rtcpInstance()->setByeHandler(nullptr,
+                                                              nullptr); // in case the server sends a RTCP "BYE" while handling "TEARDOWN"
                 }
 
                 someSubsessionsWereActive = True;
@@ -605,7 +647,7 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode) {
         if (someSubsessionsWereActive) {
             // Send a RTSP "TEARDOWN" command, to tell the server to shutdown the stream.
             // Don't bother handling the response to the "TEARDOWN".
-            rtspClient->sendTeardownCommand(*scs.session, NULL);
+            rtspClient->sendTeardownCommand(*scs.session, nullptr);
         }
     }
 
@@ -621,26 +663,30 @@ void shutdownStream(RTSPClient *rtspClient, int exitCode) {
 
 ourRTSPClient *ourRTSPClient::createNew(UsageEnvironment &env, char const *rtspURL,
                                         int verbosityLevel, char const *applicationName,
-                                        portNumBits tunnelOverHTTPPortNum, CQueue *queue,
+                                        portNumBits tunnelOverHTTPPortNum,
+                                        std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
                                         bool bTcp,
                                         unsigned udpReorderingHoldTime,
-                                        IRtspClientDestoryNotifyer *notify) {
+                                        IRtspClientNotifyer *notify, unsigned cachTimeUs) {
     return new ourRTSPClient(env, rtspURL, verbosityLevel, applicationName, tunnelOverHTTPPortNum,
-                             queue,
+                             queues,
                              bTcp,
-                             udpReorderingHoldTime, notify);
+                             udpReorderingHoldTime, notify, cachTimeUs);
 }
 
 ourRTSPClient::ourRTSPClient(UsageEnvironment &env, char const *rtspURL,
                              int verbosityLevel, char const *applicationName,
-                             portNumBits tunnelOverHTTPPortNum, CQueue *queue,
+                             portNumBits tunnelOverHTTPPortNum,
+                             std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
                              bool bTcp,
-                             unsigned udpReorderingHoldTime, IRtspClientDestoryNotifyer *notify)
+                             unsigned udpReorderingHoldTime, IRtspClientNotifyer *notify,
+                             unsigned cachTimeUs)
         : RTSPClient(env, rtspURL, verbosityLevel, applicationName, tunnelOverHTTPPortNum, -1),
-          mQueue(queue), mBTcp(bTcp), mUdpReorderingHoldTime(udpReorderingHoldTime),
-          mNotify(notify) {
-    ALOGI("[%s%d] ourRTSPClient: mBTcp:%s, mUdpReorderingHoldTime %u", __FUNCTION__, __LINE__,
-          mBTcp ? "true" : "false", mUdpReorderingHoldTime);
+          mQueues(queues), mBTcp(bTcp), mUdpReorderingHoldTime(udpReorderingHoldTime),
+          mNotify(notify), mCachTimeUs(cachTimeUs) {
+    ALOGI("[%s%d] ourRTSPClient: mBTcp:%s, mUdpReorderingHoldTime %u cachtime %u", __FUNCTION__,
+          __LINE__,
+          mBTcp ? "true" : "false", mUdpReorderingHoldTime, mCachTimeUs);
 }
 
 ourRTSPClient::~ourRTSPClient() {
@@ -654,12 +700,12 @@ ourRTSPClient::~ourRTSPClient() {
 // Implementation of "StreamClientState":
 
 StreamClientState::StreamClientState()
-        : iter(NULL), session(NULL), subsession(NULL), streamTimerTask(NULL), duration(0.0) {
+        : iter(nullptr), session(nullptr), subsession(nullptr), streamTimerTask(nullptr), duration(0.0) {
 }
 
 StreamClientState::~StreamClientState() {
     delete iter;
-    if (session != NULL) {
+    if (session != nullptr) {
         // We also need to delete "session", and unschedule "streamTimerTask" (if set)
         UsageEnvironment &env = session->envir(); // alias
 
@@ -677,16 +723,27 @@ StreamClientState::~StreamClientState() {
 
 DummySink *
 DummySink::createNew(UsageEnvironment &env, MediaSubsession &subsession, char const *streamId,
-                     CQueue *queue) {
-    return new DummySink(env, subsession, streamId, queue);
+                     std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
+                     IRtspClientNotifyer *notifyer, unsigned cachTimeUs) {
+    return new DummySink(env, subsession, streamId, queues, notifyer, cachTimeUs);
 }
 
 DummySink::DummySink(UsageEnvironment &env, MediaSubsession &subsession, char const *streamId,
-                     CQueue *queue)
-        : MediaSink(env), mQueue(queue),
-          fSubsession(subsession) {
+                     std::map<std::string, std::shared_ptr<MediaQueue>> *queues,
+                     IRtspClientNotifyer *notifyer, unsigned cachTimeUs)
+        : MediaSink(env), fSubsession(subsession), mCachTimeUs(cachTimeUs), mDataMap(queues),
+          notifyer(notifyer) {
     fStreamId = strDup(streamId);
     fReceiveBuffer = new u_int8_t[DUMMY_SINK_RECEIVE_BUFFER_SIZE];
+
+#if ENABLE_DUMPFILE//if you want to dump data, enable this
+    char file_out[128] = {0};
+    sprintf(file_out, "%s/20220720.aac", g_workdir);
+    gfp_out = fopen(file_out, "w+");
+    if (gfp_out == nullptr) {
+        ALOGE("[%s%d] fopen err:%s", __FUNCTION__, __LINE__, file_out);
+    }
+#endif
 }
 
 DummySink::~DummySink() {
@@ -706,17 +763,17 @@ void DummySink::afterGettingFrame(void *clientData, unsigned frameSize, unsigned
 
 void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes,
                                   struct timeval presentationTime,
-                                  unsigned /*durationInMicroseconds*/) {
+                                  unsigned durationInMicroseconds) {
     // We've just received a frame of data.  (Optionally) print out information about it:
 #ifdef DEBUG_PRINT_EACH_RECEIVED_FRAME
-    if (fStreamId != NULL) envir() << "Stream \"" << fStreamId << "\"; ";
+    if (fStreamId != nullptr) envir() << "Stream \"" << fStreamId << "\"; ";
     envir() << fSubsession.mediumName() << "/" << fSubsession.codecName() << ":\tReceived "
             << frameSize << " bytes";
     if (numTruncatedBytes > 0) envir() << " (with " << numTruncatedBytes << " bytes truncated)";
     char uSecsStr[6 + 1]; // used to output the 'microseconds' part of the presentation time
     sprintf(uSecsStr, "%06u", (unsigned) presentationTime.tv_usec);
     envir() << ".\tPresentation time: " << (int) presentationTime.tv_sec << "." << uSecsStr;
-    if (fSubsession.rtpSource() != NULL &&
+    if (fSubsession.rtpSource() != nullptr &&
         !fSubsession.rtpSource()->hasBeenSynchronizedUsingRTCP()) {
         envir()
                 << "!"; // mark the debugging output to indicate that this presentation time is not RTCP-synchronized
@@ -727,29 +784,123 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
     envir() << "\n";
 #endif
 
+    // map表,根据 codecName
     //to do something
-    if (mQueue) {
-        char type = fReceiveBuffer[0] & ((1 << 5) - 1); //过滤掉 结束符, 某些h264流中有 00 00 01 09 ，不带数据
-        if (type != 9) {
-            // ALOGD("[%s%d] push one frame \n", __FUNCTION__, __LINE__);
-            mQueue->push(fReceiveBuffer, frameSize);
+    std::shared_ptr<MediaQueue> queue = nullptr;
+    bool bNewStream = false;
+    if (mDataMap) {
+        std::map<std::string, std::shared_ptr<MediaQueue> >::iterator iter;
+        iter = mDataMap->find(fSubsession.codecName());
+        if (iter == mDataMap->end()) {
+            queue = std::make_shared<MediaQueue>(fSubsession.codecName());
+
+            mDataMap->insert(
+                    std::pair<std::string, std::shared_ptr<MediaQueue>>(fSubsession.codecName(),
+                                                                        queue));
+            ALOGD("[%s%d] a new stream !! %s \n", __FUNCTION__, __LINE__, fSubsession.codecName());
+            //第一帧到达时，记录下 presentationTime和系统的时间点。  减去系统时间得到 deta
+            // 在存储所有帧的时候， 都以 presentationTime - deta 作为矫正的dts. (也就是每一帧到达系统时应该对应的系统时间)
+
+            mFirstRtpPtsMap[fSubsession.codecName()] = timeUtils::getSystemUs();
+            mDifTsMap[fSubsession.codecName()] = timeUtils::toUs(presentationTime) + mCachTimeUs -
+                                                 mFirstRtpPtsMap[fSubsession.codecName()];
+
+            //计算音频的通道，采样率
+            // 当前我们只支持 aac 即MPEG4-GENERIC
+            if (!strncmp(fSubsession.mediumName(), "audio", sizeof("audio")) &&
+                !strncmp(fSubsession.codecName(), "MPEG4-GENERIC", sizeof("MPEG4-GENERIC"))) {
+                char *sdp = strdup(fSubsession.savedSDPLines());
+                ALOGD("init getline: sdp----%s", sdp);
+                const char *line = strtok(sdp, "\r\n    ");
+                while (line) {
+//                    ALOGD("init getline:%s\n",line);
+                    if (!strncmp("a=rtpmap", line, sizeof("a=rtpmap") - 1)) {
+                        int port = 0, samplerate = 0, ch = 0;
+//                        char codec[64]={0};
+                        if (sscanf(line, "a=rtpmap:%d MPEG4-GENERIC/%d/%d", &port, &samplerate,
+                                   &ch) < 3) {
+                            ALOGE("[%s%d]init sccanf err 我们需要解析出这个 采样率，不然无法进行下去 !!!", __FUNCTION__,
+                                  __LINE__);
+                            assert(0);
+                        } else {
+                            mSampleRate = samplerate;
+                            mChannels = ch;
+                            ALOGD("[%s%d]init samplerate:%d, channesl %d ", __FUNCTION__, __LINE__,
+                                  mSampleRate, mChannels);
+                        }
+                    }
+                    line = strtok(nullptr, "\r\n");
+                }
+                free(sdp);
+            }
+            bNewStream = true;
+
+        } else {
+            queue = iter->second;
+        }
+    }
+    do {
+        if (queue) {
+            if (!strncmp(fSubsession.codecName(), "H264", sizeof("H264"))) {
+                char type =
+                        fReceiveBuffer[0] & ((1 << 5) - 1); //过滤掉 结束符, 某些h264流中有 00 00 01 09 ，不带数据
+                if (type == 9) {
+                    ALOGD(" h264 END flag ,not push");
+                    break;
+                }
+            }
+
+//            {
+//
+//                struct timeval tv = presentationTime;
+//                time_t nowtime;
+//                struct tm *nowtm;
+//                char tmbuf[64] = {0}, buf[64] = {0};
+//
+////                gettimeofday(&tv, nullptr);
+//                nowtime = tv.tv_sec;
+//                nowtm = localtime(&nowtime);
+//                strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
+//                snprintf(buf, sizeof buf, "%s.%06ld", tmbuf, tv.tv_usec);
+//                ALOGD("[%s%d] presentime:%s ,durationInMicroseconds:%06d codecname:%s",
+//                      __FUNCTION__, __LINE__, buf, durationInMicroseconds, fSubsession.codecName());
+//                ALOGD("[%s%d]clientPortNum %d, width %d, height %d, fps %d, channels %d, sdp:%s",__FUNCTION__,__LINE__,fSubsession.clientPortNum(),fSubsession.videoWidth(),fSubsession.videoHeight(),fSubsession.videoFPS(),fSubsession.numChannels(),fSubsession.savedSDPLines());
+//            }
+
+
+//            ALOGD("[%s%d] push one frame \n", __FUNCTION__, __LINE__);
+            // 这里 和第一帧到达时，系统的时间点，做一个
+            std::shared_ptr<MediaBuffer> buffer = std::make_shared<MediaBuffer>(frameSize);
+            memcpy(buffer->data(), fReceiveBuffer, frameSize);
+            buffer->mCodecName = fSubsession.codecName();
+            buffer->dts = timeUtils::toUs(presentationTime) - mDifTsMap[fSubsession.codecName()];
+            buffer->durationUs = durationInMicroseconds;
+            buffer->info.aInfo.sampleRate = mSampleRate;
+            buffer->info.aInfo.channels = mChannels;
+            queue->push(buffer);
 //            if (gfp_out) {
 //                //这里组包出来的h264帧，没有naul　头
 //                unsigned char nal[4] = {0x00, 0x00, 0x00, 0x01};
 //                fwrite(nal, 1, sizeof(nal), gfp_out);
 //                fwrite(fReceiveBuffer, 1, frameSize, gfp_out);
 //            }
-        } else {
-            ALOGD("END flag ,not push");
+//            if (gfp_out && !strncmp(fSubsession.mediumName(),"audio",sizeof("audio"))) {
+//                fwrite(fReceiveBuffer, 1, frameSize, gfp_out);
+//            }
         }
+    } while (0);
 
+    if (bNewStream) {
+        if (notifyer) {
+            notifyer->onNewStreamReady(queue);
+        }
     }
     // Then continue, to request the next frame of data:
     continuePlaying();
 }
 
 Boolean DummySink::continuePlaying() {
-    if (fSource == NULL) return False; // sanity check (should not happen)
+    if (fSource == nullptr) return False; // sanity check (should not happen)
 
     // Request the next frame of data from our input source.  "afterGettingFrame()" will get called later, when it arrives:
     fSource->getNextFrame(fReceiveBuffer, DUMMY_SINK_RECEIVE_BUFFER_SIZE,

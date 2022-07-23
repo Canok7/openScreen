@@ -1,4 +1,5 @@
-﻿#include<stdio.h>
+﻿#if 0
+#include<stdio.h>
 #include<stdlib.h>
 #include <string.h>
 #include <logs.h>
@@ -102,7 +103,7 @@ int CQueue::pop(uint8_t *data, int len) {
     return copylen;
 }
 
-int CQueue::push(uint8_t *data, int len) {
+int CQueue::push(uint8_t *data, int len, DATA_INFO info) {
     //DEBUG("in %d out %d len %d\n ",mInindex,mOutindex,len);
     int iIn = mInindex;
     pthread_mutex_t *ilock = &que[iIn].mlock;
@@ -125,6 +126,7 @@ int CQueue::push(uint8_t *data, int len) {
     int copylen = MIN(len, sizeof(que[iIn].data));
 
     if (data != NULL) {
+        que[iIn].info = info;
         memcpy(que[iIn].data, data, copylen);
         que[iIn].datalen = copylen;
         if (copylen < len) {
@@ -148,7 +150,7 @@ int CQueue::push(uint8_t *data, int len) {
 
 }
 
-int CQueue::getbuffer(uint8_t **pdata, int *plen) {
+int CQueue::getbuffer(uint8_t **pdata, int *plen,DATA_INFO &info) {
     int val = 0;
     sem_wait(&mSem);
     int iout = mOutindex;
@@ -167,6 +169,7 @@ int CQueue::getbuffer(uint8_t **pdata, int *plen) {
 
     *pdata = que[iout].data;
     *plen = que[iout].datalen;
+    info = que[iout].info;
 #if EN_LOG_FILE
     if(fp_log)
     {
@@ -285,6 +288,7 @@ int main()
 
     return 0;
 }
+#endif
 #endif
 
 
