@@ -869,11 +869,16 @@ void DummySink::afterGettingFrame(unsigned frameSize, unsigned numTruncatedBytes
 
 
 //            ALOGD("[%s%d] push one frame \n", __FUNCTION__, __LINE__);
-            // 这里 和第一帧到达时，系统的时间点，做一个
+
             std::shared_ptr<MediaBuffer> buffer = std::make_shared<MediaBuffer>(frameSize);
             memcpy(buffer->data(), fReceiveBuffer, frameSize);
             buffer->mCodecName = fSubsession.codecName();
+#ifdef DEBUG_ENABLE_SRC_NPT
+            //  fSubsession.getNormalPlayTime(presentationTime);
             buffer->dts = timeUtils::toUs(presentationTime) - mDifTsMap[fSubsession.codecName()];
+#else
+            buffer->dts = timeUtils::getSystemUs() + mCachTimeUs;
+#endif
             buffer->durationUs = durationInMicroseconds;
             buffer->info.aInfo.sampleRate = mSampleRate;
             buffer->info.aInfo.channels = mChannels;
