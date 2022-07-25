@@ -66,6 +66,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="点击开始" />
+                    <Button
+                        android:id="@+id/btnTearAudio"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="关闭音频" />
                 </LinearLayout>
             </FrameLayout>
 
@@ -112,6 +117,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="点击开始" />
+                    <Button
+                        android:id="@+id/btnTearAudio1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="关闭音频" />
                 </LinearLayout>
             </FrameLayout>
         </LinearLayout>
@@ -167,6 +177,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="点击开始" />
+                    <Button
+                        android:id="@+id/btnTearAudio2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="关闭音频" />
                 </LinearLayout>
             </FrameLayout>
 
@@ -213,6 +228,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="点击开始" />
+                    <Button
+                        android:id="@+id/btnTearAudio3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="关闭音频" />
                 </LinearLayout>
             </FrameLayout>
         </LinearLayout>

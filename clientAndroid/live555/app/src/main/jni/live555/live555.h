@@ -3,6 +3,7 @@
 
 #include "queue.h"
 #include <map>
+#include <UsageEnvironment.hh>
 #include "MediaQueue.h"
 class ourRTSPClient;
 
@@ -25,6 +26,13 @@ public:
 
 class SrcLive555 : public IRtspClientNotifyer {
 public:
+    enum SRC_CMD{
+        PAUSE_SUBSESSION,
+        PLAY_SUBSESSION,
+        TEARDOWN_SUBSESSION,
+        CMD_UNKNOWN,
+    };
+
     SrcLive555(char *workdir);
 
     ~SrcLive555();
@@ -33,15 +41,23 @@ public:
 
     void stop();
 
+    void control(SRC_CMD cmd, void *data);
+
     const char *getUrl() const;
 
     ourRTSPClient *getOurRtspClient();
 
     char *getEventLoopWatchVariable();
 
+    void setCmdTrigId(EventTriggerId id);
 public:
     void openURL(UsageEnvironment &env, char const *progName, char const *rtspURL);
-
+    SRC_CMD getCmd(){
+        return mCmd;
+    }
+    void *getCmdData(){
+        return mCmdData;
+    }
 private:
     std::map<std::string, std::shared_ptr<MediaQueue>>  mQueues;
     char *mWorkdir = nullptr;
@@ -55,6 +71,10 @@ private:
 
     //用于回调
     IRtspClientNotifyer *mNotifyer = nullptr;
+
+    EventTriggerId mCmdEventId = -1;
+    SRC_CMD mCmd = CMD_UNKNOWN;
+    void *mCmdData = nullptr;
 private:
     void onRtspClinetDestoryed(void *) override;
     void onNewStreamReady(std::shared_ptr<MediaQueue> ) override;
