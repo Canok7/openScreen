@@ -39,6 +39,30 @@ LOCAL_EXPORT_C_INCLUDES := $(MY_ABSULATION_DIR)/include  \
 include $(PREBUILT_SHARED_LIBRARY)
 
 
+
+include $(CLEAR_VARS)
+LOCAL_MODULE    := libbase
+LOCAL_SRC_FILES :=  base/CMessage.cpp
+LOCAL_SRC_FILES +=  base/CHandler.cpp
+LOCAL_SRC_FILES +=  base/CLooper.cpp
+LOCAL_SRC_FILES +=  base/CLooperRoster.cpp
+LOCAL_CPP_FEATURES := rtti
+LOCAL_APP_STL := c++_shared
+LOCAL_CFLAGS += -Wall -Werror
+LOCAL_LDLIBS := -llog -landroid
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE    := baseTest
+LOCAL_SRC_FILES :=  base/test/LooperTest.cpp
+LOCAL_CFLAGS += -Wall -Werror
+LOCAL_LDLIBS := -llog -landroid
+LOCAL_STATIC_LIBRARIES := libbase
+include $(BUILD_EXECUTABLE)
+#include $(BUILD_STATIC_LIBRARY)
+#include $(BUILD_SHARED_LIBRARY)
+
+
 include $(CLEAR_VARS)
 LOCAL_MODULE    := live555player
 LOCAL_SRC_FILES :=  live555player_jni.cpp
@@ -53,6 +77,7 @@ LOCAL_SRC_FILES += MediaQueue.cpp
 LOCAL_SRC_FILES += Render/OboeRender.cpp
 LOCAL_CFLAGS += -DNO_OPENSSL=1 -Wall -Werror
 LOCAL_STATIC_LIBRARIES := live_liveMedia live_groupsock live_UsageEnvironment live_BasicUsageEnvironment
+#LOCAL_STATIC_LIBRARIES += baseTest
 LOCAL_SHARED_LIBRARIES := liboboe
 #LOCAL_LDLIBS :=  -lmediandk -llog -landroid  -static-libstdc++　＃报错，libstdc++.a　里面又有未定义的符号
 #LOCAL_LDLIBS :=  -lmediandk -llog -landroid -static-libc++ #报错，不支持这个参数
