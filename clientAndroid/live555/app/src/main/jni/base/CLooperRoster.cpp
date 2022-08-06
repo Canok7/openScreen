@@ -57,11 +57,12 @@ void CLooperRoster::unregisterStaleHandlers() {
         for (it = mHandlers.begin(); it != mHandlers.end();) {
             std::shared_ptr<CLooper> looper = it->second.mLooper.lock();
             if (nullptr == looper) {
-                mHandlers.erase(it);
+                mHandlers.erase(it++);
             } else {
                 activeLoopers.push_back(looper);
+                it++;
             }
-            it++;
+
         }
     }
 }
