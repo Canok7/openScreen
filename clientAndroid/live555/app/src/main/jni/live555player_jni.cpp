@@ -58,6 +58,10 @@ public:
         }
     }
 
+    void control(int cmd, const char *stream) {
+        mLive555->control(static_cast<SrcLive555::SRC_CMD>(cmd), (void *) stream);
+    }
+
     void onRtspClinetDestoryed(void *) override {
         mVideoDecoder->stop();
     }
@@ -107,15 +111,19 @@ void Start(JNIEnv *env, jobject obj, jstring testDir, jstring url, jobject jsurf
     jfieldID fid = env->GetFieldID(cls, "cObj", "J");
     auto p = (jlong) env->GetLongField(obj, fid);
     LivePlayer *player = nullptr;
+    const char *workdir = jstringToChar(env, testDir);
+    const char *rtspUrl = jstringToChar(env, url);
     if (p != 0) {
         ALOGW(" it had been create");
         player = (LivePlayer *) p;
     } else {
         //there will be 3 pthreader, one in live555, double in Mediacodec
-        player = new LivePlayer(jstringToChar(env, testDir));
+        player = new LivePlayer(workdir);
         env->SetLongField(obj, fid, (jlong) player);
     }
-    player->start(jstringToChar(env, url), ANativeWindow_fromSurface(env, jsurface), false);
+    player->start(rtspUrl, ANativeWindow_fromSurface(env, jsurface), false);
+    free((void *) workdir);
+    free((void *) rtspUrl);
 }
 
 void Stop(JNIEnv *env, jobject obj) {
@@ -133,9 +141,24 @@ void Stop(JNIEnv *env, jobject obj) {
     env->SetLongField(obj, fid, 0);
 }
 
+void control(JNIEnv *env, jobject obj, jint cmd, jstring stream) {
+    auto objClazz = (jclass) env->GetObjectClass(obj);//obj为对应的JAVA对象
+    jfieldID fid = env->GetFieldID(objClazz, "cObj", "J");
+    auto p = (jlong) env->GetLongField(obj, fid);
+    if (p == 0) {
+        ALOGW("pleast call start befor stop");
+        return;
+    }
+    auto *player = (LivePlayer *) p;
+    const char *streamname = jstringToChar(env, stream);
+    player->control(cmd, streamname);
+    free((void *) streamname);
+}
+
 static JNINativeMethod gMethods[] = {
-        {"c_start", "(Ljava/lang/String;Ljava/lang/String;Landroid/view/Surface;)V", (void *) Start},
-        {"c_stop",  "()V",                                                           (void *) Stop},
+        {"c_start",   "(Ljava/lang/String;Ljava/lang/String;Landroid/view/Surface;)V", (void *) Start},
+        {"c_stop",    "()V",                                                           (void *) Stop},
+        {"c_control", "(ILjava/lang/String;)V",                                        (void *) control},
 };
 
 

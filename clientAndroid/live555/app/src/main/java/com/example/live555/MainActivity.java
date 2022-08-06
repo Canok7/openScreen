@@ -36,18 +36,19 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mStreamUi = new StreamUi[4];
-        mStreamUi[0] = new StreamUi(0, findViewById(R.id.url), findViewById(R.id.btnPlay), findViewById(R.id.surfaceView));
-        mStreamUi[1] = new StreamUi(1, findViewById(R.id.url1), findViewById(R.id.btnPlay1), findViewById(R.id.surfaceView1));
-        mStreamUi[2] = new StreamUi(2, findViewById(R.id.url2), findViewById(R.id.btnPlay2), findViewById(R.id.surfaceView2));
-        mStreamUi[3] = new StreamUi(3, findViewById(R.id.url3), findViewById(R.id.btnPlay3), findViewById(R.id.surfaceView3));
+        mStreamUi[0] = new StreamUi(0, findViewById(R.id.url), findViewById(R.id.btnPlay), findViewById(R.id.btnTearAudio), findViewById(R.id.surfaceView));
+        mStreamUi[1] = new StreamUi(1, findViewById(R.id.url1), findViewById(R.id.btnPlay1), findViewById(R.id.btnTearAudio1), findViewById(R.id.surfaceView1));
+        mStreamUi[2] = new StreamUi(2, findViewById(R.id.url2), findViewById(R.id.btnPlay2), findViewById(R.id.btnTearAudio2), findViewById(R.id.surfaceView2));
+        mStreamUi[3] = new StreamUi(3, findViewById(R.id.url3), findViewById(R.id.btnPlay3), findViewById(R.id.btnTearAudio3), findViewById(R.id.surfaceView3));
     }
 
     public class StreamUi {
-        public StreamUi(int id, EditText editUrl, Button btnPlay, SurfaceView surfaceView) {
+        public StreamUi(int id, EditText editUrl, Button btnPlay, Button btnCluseAudio, SurfaceView surfaceView) {
             mId = id;
             mEditUrl = editUrl;
             mBtnPlay = btnPlay;
             mSurfaceView = surfaceView;
+            mBtnCloseAudio = btnCluseAudio;
 
             mBtnPlay.setOnClickListener(
                     (v) -> {
@@ -71,6 +72,16 @@ public class MainActivity extends AppCompatActivity {
                         }
                         mBplaying = !mBplaying;
                         mBtnPlay.setText(mBplaying ? "点击停止" : "点击开始");
+                    }
+            );
+            mBtnCloseAudio.setOnClickListener(
+                    (v) -> {
+                        Log.d(TAG, "onClick: " + mBplaying);
+                        if (mPlayer == null) {
+                            return;
+                        }
+//                    mPlayer.control(0,"audio");
+                      mPlayer.control(2, "audio");
                     }
             );
 
@@ -107,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
         private int mId;
         private EditText mEditUrl;
         private Button mBtnPlay;
+        private Button mBtnCloseAudio;
         private SurfaceView mSurfaceView;
         private Surface mSurface;
         private live555player mPlayer;

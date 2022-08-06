@@ -19,9 +19,15 @@ public class live555player {
         c_stop();
     }
 
+    public void control(int cmd, String stream){
+        c_control(cmd,stream);
+    }
+
     private native void c_start(String testDir, String url, Surface surface);
 
     private native void c_stop();
+
+    private native void c_control(int cmd, String stream);
 
     public long cObj;
 }

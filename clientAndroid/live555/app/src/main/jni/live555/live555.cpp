@@ -136,6 +136,51 @@ public:
 
 //char eventLoopWatchVariable = 0;
 /*------------------------------canok----------*/
+void cmdTaskFunc(void *live555) {
+    ALOGD("control [%s%d]", __FUNCTION__, __LINE__);
+    // 次任务，是在live555 线程中执行的
+    auto *obj = (SrcLive555 *) live555;
+    switch (obj->getCmd()) {
+        case SrcLive555::PAUSE_SUBSESSION:
+            break;
+        case SrcLive555::PLAY_SUBSESSION:
+            break;
+        case SrcLive555::TEARDOWN_SUBSESSION: {
+            ALOGD("control [%s%d]", __FUNCTION__, __LINE__);
+            StreamClientState &scs = ((ourRTSPClient *) obj->getOurRtspClient())->scs; // alias
+            MediaSubsessionIterator iter(*scs.session);
+            MediaSubsession *subsession;
+            while ((subsession = iter.next()) != nullptr) {
+                std::string mediaName((char *) obj->getCmdData());
+                if (mediaName == subsession->mediumName()) {
+                    ALOGD("control [%s%d]", __FUNCTION__, __LINE__);
+                    if (subsession->sink != nullptr) {
+                        Medium::close(subsession->sink);
+                        subsession->sink = nullptr;
+
+                        if (subsession->rtcpInstance() != nullptr) {
+                            subsession->rtcpInstance()->setByeHandler(nullptr,
+                                                                      nullptr); // in case the server sends a RTCP "BYE" while handling "TEARDOWN"
+                        }
+                        obj->getOurRtspClient()->sendTeardownCommand(*subsession, nullptr);
+                    }
+                }
+            }
+        }
+            break;
+        case SrcLive555::CMD_UNKNOWN:
+            break;
+        default:
+            ALOGE("[%s%d] unknow cmd %d", __FUNCTION__, __LINE__, obj->getCmd());
+    }
+//    UsageEnvironment &env = rtspClient->envir(); // alias
+//    env.taskScheduler(); 可以得到task
+
+//
+//
+//    unsigned sendTeardownCommand(MediaSubsession& subsession, responseHandler* responseHandler, Authenticator* authenticator = NULL);
+}
+
 //int main(int argc, char** argv) {
 void *live555_main(void *src) {
     // Begin by setting up our usage environment:
@@ -143,6 +188,11 @@ void *live555_main(void *src) {
     UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
     auto *obj = (SrcLive555 *) src;
     const char *url = obj->getUrl();
+
+    //用于控制的，触发事件
+    EventTriggerId id = scheduler->createEventTrigger(cmdTaskFunc);
+    obj->setCmdTrigId(id);
+
 #if 0 //想拉高优先级，没有权限
     int ret =0;
     pid_t pid =getpid();
@@ -218,7 +268,7 @@ SrcLive555::start(char *url, IRtspClientNotifyer *notifyer, bool bTcp, unsigned 
     mUdpReorderingHoldTime = udpReorderTimeUs;
     mCachingTimeUs = cachTimeUs;
 //    if (nullptr != mUrl) {
-        delete[] mUrl;
+    delete[] mUrl;
 //    }
     mUrl = strDup(url);
     ALOGD(" srcLive555 [%s%d] url:%s, workdir %s", __FUNCTION__, __LINE__, url, mWorkdir);
@@ -246,6 +296,10 @@ ourRTSPClient *SrcLive555::getOurRtspClient() {
 
 char *SrcLive555::getEventLoopWatchVariable() {
     return &eventLoopWatchVariable;
+}
+
+void SrcLive555::setCmdTrigId(EventTriggerId id) {
+    mCmdEventId = id;
 }
 
 
@@ -352,6 +406,14 @@ void SrcLive555::stop() {
         delete[] mUrl;
         mUrl = nullptr;
     }
+}
+
+void SrcLive555::control(SRC_CMD cmd, void *data) {
+    mCmd = cmd;
+    mCmdData = data;
+    UsageEnvironment &env = mRtspClient->envir(); // alias
+    ALOGD("[%s%d] cmd:%d stream:%s", __FUNCTION__, __LINE__, cmd, (const char *) data);
+    env.taskScheduler().triggerEvent(mCmdEventId, (void *) this);
 }
 // Implementation of the RTSP 'response handlers':
 
@@ -700,7 +762,8 @@ ourRTSPClient::~ourRTSPClient() {
 // Implementation of "StreamClientState":
 
 StreamClientState::StreamClientState()
-        : iter(nullptr), session(nullptr), subsession(nullptr), streamTimerTask(nullptr), duration(0.0) {
+        : iter(nullptr), session(nullptr), subsession(nullptr), streamTimerTask(nullptr),
+          duration(0.0) {
 }
 
 StreamClientState::~StreamClientState() {
