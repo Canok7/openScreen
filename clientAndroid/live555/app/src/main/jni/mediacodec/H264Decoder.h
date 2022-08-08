@@ -5,19 +5,20 @@
 #ifndef LIVE555_H264DECODER_H
 #define LIVE555_H264DECODER_H
 
+#include "VideoDecoderInterface.h"
 #include "media/NdkMediaCodec.h"
 #include "media/NdkMediaFormat.h"
 #include "queue.h"
 #include "MediaQueue.h"
-class H264Decoder {
+class H264Decoder : public VideoDecoderInterface{
 public :
     H264Decoder();
 
     ~H264Decoder();
 
-    int start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &dataQueues, char *workdir);
+    int start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &dataQueues, char *workdir) override;
 
-    void stop();
+    void stop() override;
 
     void inputThread();
 

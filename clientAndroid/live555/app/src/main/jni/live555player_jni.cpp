@@ -19,6 +19,7 @@
 #include <mediacodec/AACDecoder.h>
 
 #include "mediacodec/H264Decoder.h"
+#include "mediacodec/H265Decoder.h"
 #include "live555.h"
 
 class LivePlayer : public IRtspClientNotifyer {
@@ -27,15 +28,12 @@ public:
         ALOGD(" liveplayer %d, wordkir %s", __LINE__, workdir);
         mWorkdir = strDup(workdir);
         mLive555 = std::make_unique<SrcLive555>(mWorkdir);
-        mVideoDecoder = std::make_unique<H264Decoder>();
         mAudioDecoder = std::make_unique<AACDecoder>();
     }
 
     ~LivePlayer() override {
         stop();
-//        if (mWorkdir) {
         delete[] mWorkdir;
-//        }
     }
 
     void start(const char *url, ANativeWindow *pWind, bool bTcp) {
@@ -46,7 +44,9 @@ public:
 
     void stop() {
         mAudioDecoder->stop();
-        mVideoDecoder->stop();
+        if (mVideoDecoder != nullptr) {
+            mVideoDecoder->stop();
+        }
         mLive555->stop();
         if (mPwind) {
             ANativeWindow_release(mPwind);
@@ -63,16 +63,24 @@ public:
     }
 
     void onRtspClinetDestoryed(void *) override {
-        mVideoDecoder->stop();
+        if (mVideoDecoder != nullptr) {
+            mVideoDecoder->stop();
+        }
     }
 
     void onNewStreamReady(std::shared_ptr<MediaQueue> queue) override {
         ALOGD("[%s%d] codec:%s", __FUNCTION__, __LINE__, queue->codecName().c_str());
         if (queue->codecName() == "MPEG4-GENERIC") {
-//        if (!queue->codecName().compare("MPEG4-GENERIC")) {
             mAudioDecoder->start(queue, mWorkdir);
         } else if (queue->codecName() == "H264") {
-//        } else if (!queue->codecName().compare("H264")) {
+            if (mVideoDecoder == nullptr) {
+                mVideoDecoder = std::make_unique<H264Decoder>();
+            }
+            mVideoDecoder->start(mPwind, queue, mWorkdir);
+        } else if (queue->codecName() == "H265") {
+            if (mVideoDecoder == nullptr) {
+                mVideoDecoder = std::make_unique<H265Decoder>();
+            }
             mVideoDecoder->start(mPwind, queue, mWorkdir);
         } else {
             ALOGW("[%s%d] unspport format code:%s", __FUNCTION__, __LINE__,
@@ -84,9 +92,9 @@ private:
     ANativeWindow *mPwind = nullptr;
     char *mUrl = nullptr;
     char *mWorkdir = nullptr;
-    std::unique_ptr<H264Decoder> mVideoDecoder = nullptr;
     std::unique_ptr<AACDecoder> mAudioDecoder = nullptr;
     std::unique_ptr<SrcLive555> mLive555 = nullptr;
+    std::unique_ptr<VideoDecoderInterface> mVideoDecoder = nullptr;
 };
 
 static char *jstringToChar(JNIEnv *env, jstring jstr) {

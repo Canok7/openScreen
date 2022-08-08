@@ -1,33 +1,22 @@
 //
-// Created by canok on 2021/8/1.
+// Created by Administrator on 2022/8/6.
 //
-#define LOG_TAG "H264Decoder"
+
+#define LOG_TAG "H265Decoder"
 
 #include "logs.h"
-#include "H264Decoder.h"
+#include "H265Decoder.h"
 #include <pthread.h>
 #include <sys/time.h>
 #include <cstring>
 #include <unistd.h>
 #include "utils/timeUtils.h"
 
-#define TEST_FROME_FILE 0
-#if TEST_FROME_FILE
-#include "geth264Frame.cpp"
-#endif
-
-int64_t getNowUs() {
-    struct timeval tv = {0};
-    gettimeofday(&tv, nullptr);
-    return (int64_t) tv.tv_sec * 1000000 + (int64_t) tv.tv_usec;
-}
-
-H264Decoder::H264Decoder() : pMediaCodec(nullptr), mThreadIn(-1), mThreadOut(-1),
-                             mDataQueue(nullptr), bRun(true), bCheckSps(false) {
+H265Decoder::H265Decoder() {
 
 }
 
-H264Decoder::~H264Decoder() {
+H265Decoder::~H265Decoder() {
     ALOGD("[%s%d]", __FUNCTION__, __LINE__);
     stop();
     if (pMediaCodec) {
@@ -38,29 +27,23 @@ H264Decoder::~H264Decoder() {
 }
 
 static void *input(void *privdata) {
-    auto *decoder = (H264Decoder *) privdata;
+    auto *decoder = (H265Decoder *) privdata;
     decoder->inputThread();
     return nullptr;
 }
 
 static void *output(void *privdata) {
-    auto *decoder = (H264Decoder *) privdata;
+    auto *decoder = (H265Decoder *) privdata;
     decoder->outputThread();
     return nullptr;
 }
 
-int H264Decoder::start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &dataQueues, char *workdir) {
+int H265Decoder::start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &dataQueues,
+                       char *workdir) {
 
-#if TEST_FROME_FILE
-    char filetestfile[128]={0};
-    sprintf(filetestfile,"%s/test.264",workdir);
-    if( h264_init(filetestfile) !=0){
-        ALOGE("[%s%d] init file err:%s",__FUNCTION__ ,__LINE__,filetestfile);
-        return -1;
-    }
-#endif
     if (pMediaCodec != nullptr || wind == nullptr || dataQueues == nullptr) {
-        ALOGE("[%s%d] pMediaCodec!=nullptr || wind == nullptr || dataQueues == nullptr!", __FUNCTION__,
+        ALOGE("[%s%d] pMediaCodec!=nullptr || wind == nullptr || dataQueues == nullptr!",
+              __FUNCTION__,
               __LINE__);
         return -1;
     }
@@ -68,9 +51,9 @@ int H264Decoder::start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &d
     mDataQueue = dataQueues;
     bRun = true;
     if (pMediaCodec == nullptr) {
-        pMediaCodec = AMediaCodec_createDecoderByType("video/avc");//h264
+        pMediaCodec = AMediaCodec_createDecoderByType("video/hevc");//h265
         AMediaFormat *format = AMediaFormat_new();
-        AMediaFormat_setString(format, "mime", "video/avc");
+        AMediaFormat_setString(format, "mime", "video/hevc");
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
         media_status_t status = AMediaCodec_configure(pMediaCodec, format, wind, nullptr, 0);
@@ -95,7 +78,7 @@ int H264Decoder::start(ANativeWindow *wind, const std::shared_ptr<MediaQueue> &d
     return 0;
 }
 
-void H264Decoder::stop() {
+void H265Decoder::stop() {
     bRun = false;
     if (pMediaCodec != nullptr) {
         if (mThreadIn != -1) {
@@ -110,33 +93,8 @@ void H264Decoder::stop() {
     }
 }
 
-void H264Decoder::inputThread() {
-#if TEST_FROME_FILE
-    ssize_t bufidx = 0;
-    int buflen=1024*500;
-    unsigned char*bufin = (unsigned  char*)malloc(buflen);
-    int datalen =0;
+void H265Decoder::inputThread() {
 
-    while(bRun) {
-        datalen = h264_getOneNal(bufin,buflen);
-        do {
-            bufidx = AMediaCodec_dequeueInputBuffer(pMediaCodec, 1000 * 20);
-            if (bufidx >= 0) {
-                size_t bufsize;
-                uint8_t *buf = AMediaCodec_getInputBuffer(pMediaCodec, bufidx, &bufsize);
-                if (bufsize < datalen) {
-                    ALOGE("[%s%d]something maybe erro! will drop some video data!!! please check the mediacodec or src data:bufsize:%lu,datalen:%d",
-                          __FUNCTION__, __LINE__, bufsize, datalen);
-                }
-                memcpy(buf, bufin, MIN(bufsize, datalen));
-                uint64_t presentationTimeUs = getNowUs();
-                ALOGD("[%s%d] AMediaCodec_queueInputBuffer one", __FUNCTION__, __LINE__);
-                AMediaCodec_queueInputBuffer(pMediaCodec, bufidx, 0, MIN(bufsize, datalen),
-                                             presentationTimeUs, 0);
-            }
-        } while (bufidx < 0);
-    }
-#else
     while (bRun) {
         if (mDataQueue == nullptr) {
             ALOGE("[%s%d] err", __FUNCTION__, __LINE__);
@@ -151,18 +109,16 @@ void H264Decoder::inputThread() {
         if (nullptr == buffer) {
             continue;
         }
-        //这里开始缓冲， 将非sps pps 的也计入 到缓冲中
-        // 和当前系统时间进行比较，休眠到指定时间。 才开始往下
-        // 休眠可能不准确，需要更高级的方式优化
         uint64_t timenow = timeUtils::getSystemUs();
         if (buffer->dts > timenow) {
             // 缓冲中
-            ALOGD("[%s%d] caching! %ld, queueSize %lu",__FUNCTION__ ,__LINE__,buffer->dts - timenow,mDataQueue->size());
+            ALOGD("[%s%d] caching! %ld, queueSize %lu", __FUNCTION__, __LINE__,
+                  buffer->dts - timenow, mDataQueue->size());
             usleep(buffer->dts - timenow);
         }
 
         if (!bCheckSps) {
-            if (checkIs_spsppsNal((unsigned char *) buffer->data())) {
+            if (checkIs_spsppsvps((unsigned char *) buffer->data())) {
                 bCheckSps = true;
             } else {
                 ALOGW("[%s%d] drop this frame until get a sps info ", __FUNCTION__, __LINE__);
@@ -183,18 +139,19 @@ void H264Decoder::inputThread() {
                 memcpy(buf, nal, sizeof(nal));
                 memcpy(buf + sizeof(nal), buffer->data(),
                        MIN(bufsize - sizeof(nal), buffer->size()));
-                uint64_t presentationTimeUs = getNowUs();
-//                ALOGD("[%s%d] AMediaCodec_queueInputBuffer one", __FUNCTION__, __LINE__);
+                uint64_t presentationTimeUs = timeUtils::getSystemUs();
+                ALOGD("[%s%d] AMediaCodec_queueInputBuffer one type:%d", __FUNCTION__, __LINE__,
+                      getNaluType((unsigned char *) buffer->data()));
                 AMediaCodec_queueInputBuffer(pMediaCodec, bufidx, 0,
                                              MIN(bufsize, buffer->size() + 4),
                                              presentationTimeUs, 0);
             }
         } while (bufidx < 0);
     }
-#endif
+
 }
 
-void H264Decoder::outputThread() {
+void H265Decoder::outputThread() {
     while (bRun) {
         AMediaCodecBufferInfo info;
         ssize_t bufidx = 0;
@@ -217,21 +174,28 @@ void H264Decoder::outputThread() {
                   __FUNCTION__,
                   __LINE__, w, h, localColorFMT, fps);
         } else if (bufidx == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
+
+        } else if (bufidx == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+
+        } else if (bufidx == AMEDIACODEC_CONFIGURE_FLAG_ENCODE) {
+
         } else {
+            ALOGD("[%s%d] err: %ld", __FUNCTION__, __LINE__, bufidx);
+            ALOGW("[%s%d] stop  the mediacodec ", __FUNCTION__, __LINE__);
+            stop();
         }
     }
 }
 
-bool H264Decoder::checkIs_spsppsNal(const unsigned char *buff) {
-#if 0// 00 00 00 01 xx
-    uint8_t *nal =buff;
-    char type = nal[4] & ((1<<5)-1);
-    //sps 7, pps 8
-    return (type==7||type==8);
-#else//xx
-    char type = buff[0] & ((1 << 5) - 1);
-    //sps 7, pps 8 , IDR 5
-//    ALOGD("[%s%d] type %d", __FUNCTION__, __LINE__, type);
-    return (type == 7 || type == 8);
-#endif
+char H265Decoder::getNaluType(const unsigned char *buff) {
+// h265
+// type 第 1 到 6 位
+    char type = ((buff[0] & (0x7E)) >> 1);
+    return type;
+}
+
+bool H265Decoder::checkIs_spsppsvps(const unsigned char *buff) {
+    char type = getNaluType(buff);
+// 32 vps , 33 sps, 34 pps, 39 sei
+    return (type == 32 || type == 33 || type == 34);
 }

@@ -70,6 +70,7 @@ LOCAL_SRC_FILES += queue.cpp
 LOCAL_SRC_FILES += live555/live555.cpp
 LOCAL_SRC_FILES += mediacodec/H264Decoder.cpp
 LOCAL_SRC_FILES += mediacodec/AACDecoder.cpp
+LOCAL_SRC_FILES += mediacodec/H265Decoder.cpp
 LOCAL_SRC_FILES += utils/timeUtils.cpp
 LOCAL_SRC_FILES += utils/aacUtils.cpp
 LOCAL_SRC_FILES += MediaBuffer.cpp
