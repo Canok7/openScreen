@@ -35,6 +35,9 @@ android {
             path file("src/main/jni/Android.mk")
         }
     }
+    buildFeatures {
+        viewBinding true
+    }
 }
 
 dependencies {

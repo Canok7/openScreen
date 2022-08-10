@@ -10,7 +10,6 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -18,7 +17,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 
-public class MainActivity extends AppCompatActivity {
+public class ClientActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String testH264file = "test.264";
     private static final String SHAREDPREFERENCE_URL = "_url";
@@ -28,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_client);
 
         ExternalFileDir = getExternalFilesDir(null).getAbsolutePath();
         if (!(new File(ExternalFileDir + "/" + testH264file).exists())) {
