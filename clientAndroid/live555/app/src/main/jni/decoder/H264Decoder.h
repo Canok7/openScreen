@@ -8,8 +8,8 @@
 #include "VideoDecoderInterface.h"
 #include "media/NdkMediaCodec.h"
 #include "media/NdkMediaFormat.h"
-#include "queue.h"
-#include "MediaQueue.h"
+#include "base/utils/queue.h"
+#include "base/utils/MediaQueue.h"
 class H264Decoder : public VideoDecoderInterface{
 public :
     H264Decoder();

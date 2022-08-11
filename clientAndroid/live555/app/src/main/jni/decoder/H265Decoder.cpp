@@ -4,7 +4,7 @@
 
 #define LOG_TAG "H265Decoder"
 
-#include "logs.h"
+#include "utils/logs.h"
 #include "H265Decoder.h"
 #include <pthread.h>
 #include <sys/time.h>

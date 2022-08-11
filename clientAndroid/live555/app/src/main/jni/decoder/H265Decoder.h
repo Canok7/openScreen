@@ -7,8 +7,8 @@
 
 #include "media/NdkMediaCodec.h"
 #include "media/NdkMediaFormat.h"
-#include "queue.h"
-#include "MediaQueue.h"
+#include "utils/queue.h"
+#include "utils/MediaQueue.h"
 #include "VideoDecoderInterface.h"
 class H265Decoder : public VideoDecoderInterface{
 public :

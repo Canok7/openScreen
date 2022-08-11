@@ -4,9 +4,9 @@
 
 #define LOG_TAG "AACDecoder"
 
-#include "logs.h"
-#include <utils/aacUtils.h>
-#include <utils/timeUtils.h>
+#include "utils/logs.h"
+#include "aacUtils.h"
+#include "utils/timeUtils.h"
 #include <unistd.h>
 #include "AACDecoder.h"
 

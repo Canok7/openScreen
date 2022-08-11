@@ -3,7 +3,7 @@
 //
 #define LOG_TAG "H264Decoder"
 
-#include "logs.h"
+#include "utils/logs.h"
 #include "H264Decoder.h"
 #include <pthread.h>
 #include <sys/time.h>

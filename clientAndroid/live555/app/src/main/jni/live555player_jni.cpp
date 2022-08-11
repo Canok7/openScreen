@@ -4,7 +4,7 @@
 
 #define LOG_TAG "live555player_jni"
 
-#include "logs.h"
+#include "utils/logs.h"
 #include<cstdio>
 #include<cstdlib>
 #include<cstring>
@@ -16,10 +16,10 @@
 #include <unistd.h>
 #include <cassert>
 #include <strDup.hh>
-#include <mediacodec/AACDecoder.h>
+#include "decoder/AACDecoder.h"
 
-#include "mediacodec/H264Decoder.h"
-#include "mediacodec/H265Decoder.h"
+#include "decoder/H264Decoder.h"
+#include "decoder/H265Decoder.h"
 #include "live555.h"
 
 class LivePlayer : public IRtspClientNotifyer {

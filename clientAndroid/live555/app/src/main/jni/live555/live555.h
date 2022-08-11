@@ -1,10 +1,10 @@
 #ifndef  __LIVE555_HEAD_H__
 #define __LIVE555_HEAD_H__
 
-#include "queue.h"
+#include "base/utils/queue.h"
 #include <map>
 #include <UsageEnvironment.hh>
-#include "MediaQueue.h"
+#include "base/utils/MediaQueue.h"
 class ourRTSPClient;
 
 class UsageEnvironment;

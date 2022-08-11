@@ -3,10 +3,10 @@
 //
 #define LOG_TAG "oboeRender"
 
-#include "logs.h"
+#include "base/utils/logs.h"
 #include <AudioStreamBuilder.h>
 
-#include <MediaQueue.h>
+#include <base/utils/MediaQueue.h>
 #include "OboeRender.h"
 #include "oboe/Utilities.h"
 #include "utils/timeUtils.h"
@@ -50,7 +50,7 @@ bool OboeRender::onError(oboe::AudioStream *audioStream, oboe::Result error) {
 
 void OboeRender::start(int samplerate, int ch, std::shared_ptr<MediaQueue> queue) {
     ALOGI("[%s%d] start render :samplerate:%d, ch %d,", __FUNCTION__, __LINE__, samplerate, ch);
-    mQueue = queue;
+    mQueue = std::move(queue);
     oboe::AudioStreamBuilder builder = oboe::AudioStreamBuilder();
     builder.setDirection(oboe::Direction::Output)
             ->setPerformanceMode(oboe::PerformanceMode::LowLatency)

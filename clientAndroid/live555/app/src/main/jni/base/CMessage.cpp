@@ -4,7 +4,7 @@
 
 #define LOG_TAG "CMessage"
 
-#include "logs.h"
+#include "utils/logs.h"
 #include "CMessage.h"
 #include "CHandler.h"
 

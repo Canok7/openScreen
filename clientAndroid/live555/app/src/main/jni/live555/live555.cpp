@@ -22,7 +22,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 #define LOG_TAG "live555"
 
-#include "logs.h"
+#include "base/utils/logs.h"
 #include <pthread.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
@@ -37,7 +37,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include<cstring>
 #include "utils/timeUtils.h"
 
-#include "MediaQueue.h"
+#include "base/utils/MediaQueue.h"
 
 #define ENABLE_DUMPFILE  1
 char g_workdir[128];
