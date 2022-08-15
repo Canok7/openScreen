@@ -3,8 +3,13 @@
   <component name="DesignSurface">
     <option name="filePathToZoomLevelMap">
       <map>
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/drawable-v24/ic_launcher_foreground.xml" value="0.1828125" />
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/drawable/ic_launcher_background.xml" value="0.25925925925925924" />
         <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/layout/activity_client.xml" value="0.30344202898550726" />
-        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/layout/activity_start.xml" value="0.1" />
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/layout/activity_start.xml" value="0.22" />
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" value="0.25925925925925924" />
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/mipmap-anydpi-v26/ic_launcher_m.xml" value="0.1828125" />
+        <entry key="..\:/Android_programe/github/openScreen/clientAndroid/live555/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" value="0.1828125" />
       </map>
     </option>
   </component>
