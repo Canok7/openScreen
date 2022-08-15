@@ -16,31 +16,67 @@
 class LiveServer {
 
 public:
-    ANativeWindow * getInputSurface(){
-        return nullptr;
+    explicit LiveServer(std::string &workdir){
+        mWorkdir = workdir;
     }
-    void start(){
-
+   ~LiveServer(){
+        ALOGD("[%s%d]",__FUNCTION__ ,__LINE__);
+    }
+    ANativeWindow * getInputSurface(){
+        return mEncoder->getInputSurface();
+    }
+    void start(const VideoEncoderConfig& config){
+        if(mEncoder == nullptr){
+            mEncoder = std::make_shared<H264Encoder>();
+        }
+        mEncoder->start(config, mWorkdir);
     }
     void stop(){
-
+        mEncoder->stop();
     }
+
+private:
+    std::shared_ptr<VideoEncoderInterface> mEncoder;
+    std::string mWorkdir;
 };
 
-void native_start(JNIEnv *env, jobject obj, int w, int h, float fps){
+std::string jstringToString(JNIEnv *env, jstring jstr) {
+    char *rtn = nullptr;
+    jclass clsstring = env->FindClass("java/lang/String");
+    jstring strencode = env->NewStringUTF("utf-8");
+    jmethodID mid = env->GetMethodID(clsstring, "getBytes", "(Ljava/lang/String;)[B");
+    auto barr = (jbyteArray) env->CallObjectMethod(jstr, mid, strencode);
+    jsize alen = env->GetArrayLength(barr);
+    jbyte *ba = env->GetByteArrayElements(barr, JNI_FALSE);
+    if (alen > 0) {
+        rtn = (char *) malloc(alen + 1);
+        memcpy(rtn, ba, alen);
+        rtn[alen] = 0;
+    }
+    env->ReleaseByteArrayElements(barr, ba, 0);
+    std::string ret (rtn);
+    free (rtn);
+    return ret;
+}
+
+void native_start(JNIEnv *env, jobject obj, int w, int h, float fps, jstring workdir){
+
+    std::string work = jstringToString(env,workdir);
+
     jclass cls = env->GetObjectClass(obj);
     jfieldID fid = env->GetFieldID(cls, "cObj", "J");
     auto p = (jlong) env->GetLongField(obj, fid);
-    LiveServer *server = nullptr;
+    LiveServer *server;
     if (p != 0) {
         ALOGW(" it had been create");
         server = (LiveServer *) p;
     } else {
-        server = new LiveServer();
+        server = new LiveServer(work);
         env->SetLongField(obj, fid, (jlong) server);
     }
 
-    server->start();
+    VideoEncoderConfig config = {.w=w,.h=h,.bitRate=1024*5*1000,.fps=fps};
+    server->start(config);
 }
 
 jobject native_getInputSurface(JNIEnv *env, jobject obj){
@@ -52,10 +88,9 @@ jobject native_getInputSurface(JNIEnv *env, jobject obj){
         return nullptr;
     }
     auto *server = (LiveServer *) p;
-    (void)server;
-    // 需要转换
-//    return p->getInputSurface();
-return nullptr;
+    ANativeWindow * nativeWindow = server->getInputSurface();
+    jobject jSurface = ANativeWindow_toSurface(env,nativeWindow);
+    return jSurface;
 }
 
 void native_stop(JNIEnv *env, jobject obj){
@@ -73,7 +108,7 @@ void native_stop(JNIEnv *env, jobject obj){
 }
 
 static JNINativeMethod gMethods[] = {
-        {"native_start",   "(IIF)V", (void *) native_start},
+        {"native_start",   "(IIFLjava/lang/String;)V", (void *) native_start},
         {"native_stop",    "()V",     (void *) native_stop},
         {"native_getInputSurface", "()Landroid/view/Surface;", (void *)native_getInputSurface},
 };

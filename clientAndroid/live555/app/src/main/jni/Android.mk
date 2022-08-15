@@ -75,7 +75,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE    := live555player
 LOCAL_SRC_FILES := live555player_jni.cpp
-LOCAL_SRC_FILES += live555/live555.cpp
+LOCAL_SRC_FILES += live555/Clientlive555.cpp
 LOCAL_SRC_FILES += decoder/aacUtils.cpp
 LOCAL_SRC_FILES += decoder/H264Decoder.cpp
 LOCAL_SRC_FILES += decoder/AACDecoder.cpp
@@ -92,6 +92,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := live555Server
 LOCAL_SRC_FILES := live555Server_jni.cpp
 LOCAL_SRC_FILES += encoder/H264Encoder.cpp
+LOCAL_SRC_FILES += encoder/Stream2File.cpp
 LOCAL_CFLAGS += -DNO_OPENSSL=1 -Wall -Werror
 LOCAL_STATIC_LIBRARIES := live_liveMedia live_groupsock live_UsageEnvironment live_BasicUsageEnvironment
 LOCAL_SHARED_LIBRARIES := libbase

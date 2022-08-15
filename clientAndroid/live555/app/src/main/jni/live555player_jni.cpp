@@ -20,14 +20,14 @@
 
 #include "decoder/H264Decoder.h"
 #include "decoder/H265Decoder.h"
-#include "live555.h"
+#include "Clientlive555.h"
 
 class LivePlayer : public IRtspClientNotifyer {
 public:
     explicit LivePlayer(const char *workdir) {
         ALOGD(" liveplayer %d, wordkir %s", __LINE__, workdir);
         mWorkdir = strDup(workdir);
-        mLive555 = std::make_unique<SrcLive555>(mWorkdir);
+        mLive555 = std::make_unique<Clientlive555>(mWorkdir);
         mAudioDecoder = std::make_unique<AACDecoder>();
     }
 
@@ -59,7 +59,7 @@ public:
     }
 
     void control(int cmd, const char *stream) {
-        mLive555->control(static_cast<SrcLive555::SRC_CMD>(cmd), (void *) stream);
+        mLive555->control(static_cast<Clientlive555::SRC_CMD>(cmd), (void *) stream);
     }
 
     void onRtspClinetDestoryed(void *) override {
@@ -93,7 +93,7 @@ private:
     char *mUrl = nullptr;
     char *mWorkdir = nullptr;
     std::unique_ptr<AACDecoder> mAudioDecoder = nullptr;
-    std::unique_ptr<SrcLive555> mLive555 = nullptr;
+    std::unique_ptr<Clientlive555> mLive555 = nullptr;
     std::unique_ptr<VideoDecoderInterface> mVideoDecoder = nullptr;
 };
 

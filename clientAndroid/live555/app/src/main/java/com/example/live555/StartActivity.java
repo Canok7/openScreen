@@ -22,6 +22,7 @@ public class StartActivity extends AppCompatActivity {
         binding.server.setOnClickListener(
                 (v) -> {
                     Log.d(TAG, "onCreate: start Server");
+                    startActivity(new Intent(StartActivity.this, CameraServerActivity.class));
                 }
         );
 
