@@ -1,0 +1,6 @@
+player:对外提供LivePlayer类, LivePlayer启动时更具参数创建Clientlive555, 当有流数据后Clientlive555会通知livePlayer，并给出流数据的队列。
+由livePlayer根据具体的流类型，用Clientlive555提供的的数据队列作为输入源来创建解码器。 解码器即开始解码并渲染。
+
+
+server:对外提供LiveServer类, LiveServer启动时根据参数创建Serverlive555, 当有客户端连接后通知LiveServer，
+由LiveServer创建编码器，并从编码器中获取ANativeWindow，通知java层的server绑定camera或者virtualdisplay以提供编码数据源。

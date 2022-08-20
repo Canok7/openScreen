@@ -5,10 +5,10 @@
 #include <map>
 #include <UsageEnvironment.hh>
 #include "base/utils/MediaQueue.h"
+
 class ourRTSPClient;
 
 class UsageEnvironment;
-
 
 
 class IRtspClientNotifyer {
@@ -19,25 +19,25 @@ public:
 
     virtual void onRtspClinetDestoryed(void *) = 0;
 
-    virtual void onNewStreamReady(std::shared_ptr<MediaQueue> ) = 0;
+    virtual void onNewStreamReady(std::shared_ptr<MediaQueue>) = 0;
 };
-
 
 
 class Clientlive555 : public IRtspClientNotifyer {
 public:
-    enum SRC_CMD{
+    enum SRC_CMD {
         PAUSE_SUBSESSION,
         PLAY_SUBSESSION,
         TEARDOWN_SUBSESSION,
         CMD_UNKNOWN,
     };
 
-    Clientlive555(char *workdir);
+    explicit Clientlive555(char *workdir);
 
     ~Clientlive555();
 
-    void start(char *url, IRtspClientNotifyer *notifyer, bool bTcp, unsigned udpReorderTimeUs, unsigned cachTimeUs);
+    void start(char *url, IRtspClientNotifyer *notifyer, bool bTcp, unsigned udpReorderTimeUs,
+               unsigned cachTimeUs);
 
     void stop();
 
@@ -50,16 +50,20 @@ public:
     char *getEventLoopWatchVariable();
 
     void setCmdTrigId(EventTriggerId id);
+
 public:
     void openURL(UsageEnvironment &env, char const *progName, char const *rtspURL);
-    SRC_CMD getCmd(){
+
+    SRC_CMD getCmd() {
         return mCmd;
     }
-    void *getCmdData(){
+
+    void *getCmdData() {
         return mCmdData;
     }
+
 private:
-    std::map<std::string, std::shared_ptr<MediaQueue>>  mQueues;
+    std::map<std::string, std::shared_ptr<MediaQueue>> mQueues;
     char *mWorkdir = nullptr;
     char *mUrl = nullptr;
     pthread_t pliveThread = -1;
@@ -77,7 +81,8 @@ private:
     void *mCmdData = nullptr;
 private:
     void onRtspClinetDestoryed(void *) override;
-    void onNewStreamReady(std::shared_ptr<MediaQueue> ) override;
+
+    void onNewStreamReady(std::shared_ptr<MediaQueue>) override;
 };
 
 #endif

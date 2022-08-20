@@ -73,6 +73,18 @@ include $(BUILD_SHARED_LIBRARY)
 
 
 include $(CLEAR_VARS)
+LOCAL_MODULE    := libstream
+LOCAL_SRC_FILES :=  Stream/Stream2File.cpp
+LOCAL_SRC_FILES +=  Stream/h264StreamFromeFile.cpp
+LOCAL_SRC_FILES +=  Stream/Patch.cpp
+LOCAL_CPP_FEATURES := rtti
+LOCAL_APP_STL := c++_shared
+LOCAL_CFLAGS += -Wall -Werror
+LOCAL_LDLIBS := -llog -landroid
+LOCAL_SHARED_LIBRARIES := libbase
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE    := live555player
 LOCAL_SRC_FILES := live555player_jni.cpp
 LOCAL_SRC_FILES += live555/Clientlive555.cpp
@@ -81,7 +93,6 @@ LOCAL_SRC_FILES += decoder/H264Decoder.cpp
 LOCAL_SRC_FILES += decoder/AACDecoder.cpp
 LOCAL_SRC_FILES += decoder/H265Decoder.cpp
 LOCAL_SRC_FILES += Render/OboeRender.cpp
-
 LOCAL_CFLAGS += -DNO_OPENSSL=1 -Wall -Werror
 LOCAL_STATIC_LIBRARIES := live_liveMedia live_groupsock live_UsageEnvironment live_BasicUsageEnvironment
 LOCAL_SHARED_LIBRARIES := liboboe libbase
@@ -91,10 +102,10 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE    := live555Server
 LOCAL_SRC_FILES := live555Server_jni.cpp
+LOCAL_SRC_FILES += live555/Serverlive555.cpp
 LOCAL_SRC_FILES += encoder/H264Encoder.cpp
-LOCAL_SRC_FILES += encoder/Stream2File.cpp
 LOCAL_CFLAGS += -DNO_OPENSSL=1 -Wall -Werror
 LOCAL_STATIC_LIBRARIES := live_liveMedia live_groupsock live_UsageEnvironment live_BasicUsageEnvironment
-LOCAL_SHARED_LIBRARIES := libbase
+LOCAL_SHARED_LIBRARIES := libbase libstream
 LOCAL_LDLIBS :=  -lmediandk -llog -landroid
 include $(BUILD_SHARED_LIBRARY)

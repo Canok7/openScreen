@@ -6,10 +6,21 @@
 #define LIVE555_STEAMSINKERINTERFACE_H
 
 #include <memory>
+#include <string>
+
+class MediaBuffer;
+
 class MediaQueue;
+
+struct StreamSinkerInfo {
+    std::string name;
+};
+
 class SteamSinkerInterface {
 public:
-    virtual void start(std::shared_ptr<MediaQueue> &queue, std::string &workdir) = 0;
+    virtual void init(std::string &workdir, const StreamSinkerInfo &info) = 0;
+
+    virtual void pushOneFrame(std::shared_ptr<MediaBuffer>) = 0;
 };
 
 

@@ -8,17 +8,21 @@
 #include <thread>
 #include "SteamSinkerInterface.h"
 
-class Stream2File : public SteamSinkerInterface{
+class Stream2File : public SteamSinkerInterface {
 public:
     Stream2File() = default;
+
     virtual  ~Stream2File();
-    void start(std::shared_ptr<MediaQueue> &queue, std::string &workdir) override;
+
+    void init(std::string &workdir, const StreamSinkerInfo &info) override;
+
+    void pushOneFrame(std::shared_ptr<MediaBuffer>) override;
 
 private:
     FILE *mfp = nullptr;
     std::unique_ptr<std::thread> mThread = nullptr;
     std::shared_ptr<MediaQueue> mQueue;
-    bool  bRun = true;
+    bool bRun = true;
 };
 
 

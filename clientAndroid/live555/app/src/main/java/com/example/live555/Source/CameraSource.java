@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class CameraSource implements SourceInterface{
-    private final String TAG="CameraSource";
+public class CameraSource implements SourceInterface {
+    private final String TAG = "CameraSource";
     private Context mContext;
     private CameraDevice mCameraDevice;
     private CaptureRequest.Builder mPreviewBuilder;
@@ -45,11 +45,11 @@ public class CameraSource implements SourceInterface{
     private SourceConfig mConfig;
 
     @Override
-    public void openSource(Surface surface,SourceConfig config) {
+    public void openSource(Surface surface, SourceConfig config) {
         mConfig = config;
         try {
-            prepare(surface,config.w,config.h);
-        }catch (Exception e){
+            prepare(surface, config.w, config.h);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -73,28 +73,28 @@ public class CameraSource implements SourceInterface{
     public void shiftSource(int id) {
         //if you want to change size, please to call
         //MultiScreenShareInterface::setSurfaceProp
-        if(id !=  mCamraId){
+        if (id != mCamraId) {
             mCamraId = id;
             closeCamera();
-            openSource(mtoEncoderSurface,mConfig);
+            openSource(mtoEncoderSurface, mConfig);
         }
     }
 
     @Override
-    public SourceInfo[] getSourceInfo(){
-        SourceInfo[] infos =null;
+    public SourceInfo[] getSourceInfo() {
+        SourceInfo[] infos = null;
         try {
-            String []cameList;
+            String[] cameList;
             cameList = cameraManager.getCameraIdList();
             infos = new SourceInfo[cameList.length];
 
-            for(int i=0;i<infos.length;i++) {
+            for (int i = 0; i < infos.length; i++) {
                 CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameList[i]);
                 infos[i].fpsRange = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
 
                 StreamConfigurationMap map = characteristics
                         .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                infos[i].sizes =  map.getOutputSizes(MediaCodec.class);
+                infos[i].sizes = map.getOutputSizes(MediaCodec.class);
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -103,12 +103,13 @@ public class CameraSource implements SourceInterface{
     }
 
     /*------------------------------------*/
-    public CameraSource(Context context,int camraId) {
-        this(context,camraId,null);
+    public CameraSource(Context context, int camraId) {
+        this(context, camraId, null);
     }
-    public CameraSource(Context context,int camraId,Surface localSurface) {
+
+    public CameraSource(Context context, int camraId, Surface localSurface) {
         this.mContext = context;
-        this.mCamraId=camraId;
+        this.mCamraId = camraId;
         this.mLocalPreviewSurface = localSurface;
         cameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
     }
@@ -117,12 +118,19 @@ public class CameraSource implements SourceInterface{
     private void startPreview() {
         try {
             mPreviewBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+
             List<Surface> surfaces = new ArrayList<>();
-            surfaces.add(mtoEncoderSurface);
-            mPreviewBuilder.addTarget(mtoEncoderSurface);
-            if(mLocalPreviewSurface != null) {
+            if (mtoEncoderSurface != null) {
+                surfaces.add(mtoEncoderSurface);
+                mPreviewBuilder.addTarget(mtoEncoderSurface);
+            }
+            if (mLocalPreviewSurface != null) {
                 surfaces.add(mLocalPreviewSurface);
                 mPreviewBuilder.addTarget(mLocalPreviewSurface);
+            }
+            if (surfaces.isEmpty()) {
+                Log.e(TAG, "startPreview err, no surface set");
+                return;
             }
 
             mCameraDevice.createCaptureSession(surfaces, new CameraCaptureSession.StateCallback() {
@@ -136,20 +144,20 @@ public class CameraSource implements SourceInterface{
                     //mPreviewBuilder.set(CaptureRequest.CONTROL_AWB_MODE,CameraMetadata.CONTROL_AWB_MODE_AUTO);
                     //mPreviewBuilder.set(CaptureRequest.JPEG_ORIENTATION, 0);//just for take photo
 
-                    String cameraId ;
+                    String cameraId;
                     try {
                         Log.d(TAG, "onConfigured: ");
-                        String []cameList = cameraManager.getCameraIdList();
-                        if(mCamraId < cameList.length){
+                        String[] cameList = cameraManager.getCameraIdList();
+                        if (mCamraId < cameList.length) {
                             cameraId = cameList[mCamraId];
-                        }else{
-                            Log.e(TAG, "onConfigured: not sopport camerid:"+mCamraId+"will change to 0");
+                        } else {
+                            Log.e(TAG, "onConfigured: not sopport camerid:" + mCamraId + "will change to 0");
                             cameraId = cameList[0];
                         }
                         CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
                         Range<Integer>[] fpsRange = characteristics.get(
                                 CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
-                        Log.d(TAG, "fpsRange: "+ Arrays.toString(fpsRange));
+                        Log.d(TAG, "fpsRange: " + Arrays.toString(fpsRange));
                         if (fpsRange != null && fpsRange.length > 0) {
                             Range<Integer> maxFps = fpsRange[0];
                             Range<Integer> minFps = fpsRange[0];
@@ -159,21 +167,21 @@ public class CameraSource implements SourceInterface{
                                     maxFps = aFpsRange;
                                 }
 
-                                if(maxFps.getLower() * maxFps.getUpper() > aFpsRange.getLower() * aFpsRange.getUpper()){
+                                if (maxFps.getLower() * maxFps.getUpper() > aFpsRange.getLower() * aFpsRange.getUpper()) {
                                     minFps = aFpsRange;
                                 }
                                 //first ,we need minfps >= 15
-                                if(aFpsRange.getLower() >=mConfig.fps){
-                                    if(chooseFps==null){
+                                if (aFpsRange.getLower() >= mConfig.fps) {
+                                    if (chooseFps == null) {
                                         chooseFps = aFpsRange;
                                     }
                                     //then , we choose max range
-                                    if(chooseFps.getUpper()-chooseFps.getLower() < aFpsRange.getUpper()-aFpsRange.getLower()){
+                                    if (chooseFps.getUpper() - chooseFps.getLower() < aFpsRange.getUpper() - aFpsRange.getLower()) {
                                         chooseFps = aFpsRange;
                                     }
                                 }
                             }
-                            Log.e(TAG, "onConfigured  maxFps=" + maxFps.toString()+", minfps="+minFps.toString()+", choose:fps"+chooseFps);
+                            Log.e(TAG, "onConfigured  maxFps=" + maxFps.toString() + ", minfps=" + minFps.toString() + ", choose:fps" + chooseFps);
                             mPreviewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, chooseFps);
                         }
                         mPreviewSession.setRepeatingRequest(mPreviewBuilder.build(), null, bgHandler);
@@ -184,7 +192,7 @@ public class CameraSource implements SourceInterface{
 
                 @Override
                 public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                    Log.e(TAG,"createCaptureSession onConfigureFailed");
+                    Log.e(TAG, "createCaptureSession onConfigureFailed");
                 }
             }, null);
 
@@ -210,12 +218,12 @@ public class CameraSource implements SourceInterface{
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
 
-            String cameraId ;
-            String []cameList = cameraManager.getCameraIdList();
-            if(mCamraId < cameList.length){
+            String cameraId;
+            String[] cameList = cameraManager.getCameraIdList();
+            if (mCamraId < cameList.length) {
                 cameraId = cameList[mCamraId];
-            }else{
-                Log.e("get CamersaSize", "onConfigured: not sopport camerid:"+mCamraId+"will change to camera 0");
+            } else {
+                Log.e("get CamersaSize", "onConfigured: not sopport camerid:" + mCamraId + "will change to camera 0");
                 cameraId = cameList[0];
             }
             if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -255,7 +263,6 @@ public class CameraSource implements SourceInterface{
             mCameraOpenCloseLock.release();
         }
     }
-
 
 
     /**

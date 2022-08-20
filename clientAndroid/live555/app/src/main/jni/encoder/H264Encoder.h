@@ -9,12 +9,12 @@
 #include <thread>
 #include "Errors.h"
 #include "VideoEncoderInterface.h"
-#include "SteamSinkerInterface.h"
+#include "Stream/SteamSinkerInterface.h"
 
 class MediaQueue;
 class H264Encoder : public VideoEncoderInterface{
 public:
-    H264Encoder() = default;
+    H264Encoder(std::shared_ptr<SteamSinkerInterface> sink = nullptr) ;
     virtual  ~H264Encoder();
     status_t start(const VideoEncoderConfig &config , std::string &workdir) override;
 
@@ -29,10 +29,10 @@ private:
     std::unique_ptr< std::thread > mThread;
     AMediaCodec* mAMediaCodec = nullptr;
     ANativeWindow *mANateWindow = nullptr;
-    VideoEncoderConfig mConfig;
+    VideoEncoderConfig mConfig ;
     bool  bRun = true;
-    std::shared_ptr<MediaQueue> mQueue;
-    std::shared_ptr<SteamSinkerInterface> mSink;
+//    std::shared_ptr<MediaQueue> mQueue;
+    std::shared_ptr<SteamSinkerInterface> mSink = nullptr;
     std::string mWorkdir;
 };
 
