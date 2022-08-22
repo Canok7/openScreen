@@ -136,6 +136,19 @@ private:
 };
 
 
+class OurRTSPServer : public RTSPServer {
+public:
+//    TODO:(canok) to get client info in here
+    OurRTSPServer(UsageEnvironment &env, Port ourPort = 554) : RTSPServer(
+            *RTSPServer::createNew(env, ourPort)) {
+
+    }
+
+    ~OurRTSPServer() override{
+        ALOGD("[%s%d] ", __FUNCTION__, __LINE__);
+    }
+};
+
 Serverlive555::Serverlive555(std::string workdir, std::shared_ptr<SteamSourceInterface> srouce)
         : mSource(
         srouce) {
@@ -162,11 +175,14 @@ void Serverlive555::start(IRtspServerNotifyer *notifyer, int port) {
     mNotifyer = notifyer;
     auto thread_run = [=, function_name = "liveServerThread"]() {
 
+        ALOGD("[%s%d] server thread start---", function_name, __LINE__);
         TaskScheduler *scheduler = BasicTaskScheduler::createNew();
         UsageEnvironment *env = BasicUsageEnvironment::createNew(*scheduler);
 
         // Create the RTSP server:
-        RTSPServer *rtspServer = RTSPServer::createNew(*env, port, nullptr);
+//        RTSPServer *rtspServer = RTSPServer::createNew(*env, port, nullptr);
+        auto *rtspServer = new OurRTSPServer(*env, port);
+        CHECK(rtspServer != nullptr);
 
         OutPacketBuffer::maxSize = 2000000;
         char const *streamName = "h264Live";
@@ -193,6 +209,7 @@ void Serverlive555::start(IRtspServerNotifyer *notifyer, int port) {
         }
 
         env->taskScheduler().doEventLoop(&bStop);
+        delete rtspServer;
         env->reclaim();
         delete scheduler;
         ALOGD("[%s%d] live555 work thread over!--", function_name, __LINE__);
