@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.Surface;
 
 import com.example.live555.Source.CameraSource;
+import com.example.live555.Source.MediaProjectionServer;
 import com.example.live555.Source.SourceInterface;
 
 import android.os.Handler;
@@ -35,14 +36,23 @@ public class live555Server {
                     switch (msg.what) {
                         case 1: {
                             Log.d(TAG, "get the notify: " + idCount++);
-                            if (mSource != null) {
+                            Log.d(TAG, "handleMessage: " + mConfig.type);
+                            if (bStart) {
                                 Log.d(TAG, "handleMessage:  we had start --------");
                                 return;
                             }
                             if (mConfig.type == SourceInterface.SOURCE_CAMERA) {
                                 Log.d(TAG, "handleMessage: create camera");
-                                mSource = new CameraSource(mContext, mConfig.cameraId, mLockpriew);
+                                if (mSource == null) {
+                                    mSource = new CameraSource(mContext, mConfig.cameraId, mLockpriew);
+                                }
+                            } else if (mConfig.type == SourceInterface.SOURCE_SCREEN) {
+                                Log.d(TAG, "handleMessage: create screen");
+                                if (mSource == null) {
+                                    Log.e(TAG, "start Screen need MediaProjectionServer");
+                                }
                             }
+
                             Surface surface = native_getInputSurface();
                             if (surface == null) {
                                 Log.e(TAG, "start: surface err!!!");
@@ -89,6 +99,17 @@ public class live555Server {
         return 1;
     }
 
+    public int start(Context context, ServerConfig config, Surface localprview, SourceInterface source) {
+        Log.d(TAG, "start server" + config.w + ", " + config.h + "@" + config.fps);
+        mContext = context;
+        mConfig = config;
+        mLockpriew = localprview;
+        mSource = source;
+        mWorkThreader.start();
+        native_start(config.w, config.h, config.fps, config.workdir);
+        return 1;
+    }
+
     public void notify(int msg, int data) {
         Log.d(TAG, "notify: " + msg);
         switch (msg) {
@@ -123,5 +144,6 @@ public class live555Server {
     private ServerConfig mConfig;
     private Context mContext;
     private Surface mLockpriew;
+    private boolean bStart = false;
 
 }

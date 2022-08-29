@@ -16,13 +16,31 @@
         android:scaleType="centerInside"
         android:src="@drawable/client" />
 
-    <ImageView
-        android:id="@+id/server"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="@drawable/start_bg"
-        android:scaleType="centerInside"
-        android:src="@drawable/server" />
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/server_camera"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/start_bg"
+            android:scaleType="centerInside"
+            android:src="@drawable/server" />
+
+        <ImageView
+            android:id="@+id/server_screen"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/start_bg"
+            android:scaleType="centerInside"
+            android:src="@drawable/server" />
+
+    </LinearLayout>
+
 
 </LinearLayout>
